@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import AddProjectForm from '../components/AddProjectForm';
-import { createProject, filterProjectsForUser } from '../services/mockData';
+import { createProject, filterProjectsForUser, mockUsers } from '../services/mockData'; // <-- Импортируем mockUsers
 import { useNavigate } from 'react-router-dom';
 
 const { Header, Sider, Content } = Layout;
@@ -22,6 +22,11 @@ export default function ProjectsListPage() {
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [projects, setProjects] = useState([]);
+
+    // Получаем список имен менеджеров из mockUsers
+    const managers = useMemo(() =>
+            Object.values(mockUsers).filter(u => u.role === 'manager').map(m => m.name)
+        , []);
 
     // Обновляем логику для фильтрации
     const activeProjects = useMemo(() => {
@@ -165,7 +170,8 @@ export default function ProjectsListPage() {
                         okText={t('common.createOk', { defaultValue: t('projects.create') })}
                         cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                     >
-                        <AddProjectForm form={form} onFinish={handleCreate} />
+                        {/* Передаем список менеджеров в форму */}
+                        <AddProjectForm form={form} onFinish={handleCreate} managers={managers} />
                     </Modal>
                 </Content>
             </Layout>

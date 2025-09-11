@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;
 
-export default function AddProjectForm({ form, onFinish, initialValues }) {
+export default function AddProjectForm({ form, onFinish, initialValues, managers = [] }) {
     const { t } = useTranslation();
 
     return (
@@ -37,7 +37,14 @@ export default function AddProjectForm({ form, onFinish, initialValues }) {
                 label={t('projects.form.manager')}
                 rules={[{ required: true, message: t('projects.form.managerMsg') }]}
             >
-                <Input />
+                {/* Заменяем Input на Select */}
+                <Select showSearch placeholder={t('projects.form.managerMsg')}>
+                    {managers.map(name => (
+                        <Option key={name} value={name}>
+                            {name}
+                        </Option>
+                    ))}
+                </Select>
             </Form.Item>
 
             <Form.Item
