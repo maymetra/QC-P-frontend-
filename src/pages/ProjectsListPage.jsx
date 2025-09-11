@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import AddProjectForm from '../components/AddProjectForm';
-import { createProject, filterProjectsForUser, mockUsers } from '../services/mockData'; // <-- Импортируем mockUsers
+import { createProject, filterProjectsForUser, mockUsers, getTemplates } from '../services/mockData'; // <-- Импортируем mockUsers
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 
 const { Header, Sider, Content } = Layout;
@@ -18,7 +19,12 @@ export default function ProjectsListPage() {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const [templates, setTemplates] = useState([]);
 
+    useEffect(() => {
+        setProjects(filterProjectsForUser(user));
+        setTemplates(getTemplates());
+    }, [user]);
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [projects, setProjects] = useState([]);
@@ -64,8 +70,38 @@ export default function ProjectsListPage() {
     const closeCreate = () => setIsModalVisible(false);
 
     const handleCreate = values => {
-        createProject(values); // createProject уже обновляет mockData
-        setProjects(filterProjectsForUser(user)); // Перечитываем все проекты
+        const newProject = createProject(values);
+
+        if (values.template) {
+            const selectedTemplate = templates.find(t => t.name === values.template);
+            if (selectedTemplate && values.basePlannedDate) {
+                const baseDate = dayjs(values.basePlannedDate); // Базовая дата из формы
+
+                const itemsFromTemplate = selectedTemplate.items.map((itemText, index) => {
+                    // Можно добавить логику для смещения даты, например:
+                    // const plannedDate = baseDate.add(index * 7, 'day').format('YYYY-MM-DD'); // +7 дней за каждый item
+                    // Или просто использовать базовую дату для всех:
+                    const plannedDate = baseDate.format('YYYY-MM-DD');
+
+                    return {
+                        key: `i-${Date.now()}-${Math.random()}-${index}`, // Уникальный ключ
+                        item: itemText,
+                        action: '',
+                        author: '',
+                        reviewer: '',
+                        plannedDate: plannedDate, // <-- Устанавливаем plannedDate
+                        closedDate: '',
+                        documents: [],
+                        status: 'open',
+                        comment: '',
+                        attachments: [],
+                    };
+                });
+                localStorage.setItem(`jiraItems:${newProject.id}`, JSON.stringify(itemsFromTemplate));
+            }
+        }
+
+        setProjects(filterProjectsForUser(user));
         setIsModalVisible(false);
         form.resetFields();
     };
@@ -171,7 +207,7 @@ export default function ProjectsListPage() {
                         cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                     >
                         {/* Передаем список менеджеров в форму */}
-                        <AddProjectForm form={form} onFinish={handleCreate} managers={managers} />
+                        <AddProjectForm form={form} onFinish={handleCreate} managers={managers} templates={templates} />
                     </Modal>
                 </Content>
             </Layout>

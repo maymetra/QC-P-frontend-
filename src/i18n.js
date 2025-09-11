@@ -83,6 +83,9 @@ i18n
                             managerMsg: 'Please enter the manager!',
                             status: 'Status',
                             statusMsg: 'Please select the status!',
+                            basePlannedDate: 'Base Planned Date for Template Items',
+                            basePlannedDateMsg: 'Please select a base planned date',
+
                         },
                     },
                     /* ---------- USERS PAGE ---------- */
@@ -117,8 +120,15 @@ i18n
                             description: 'Here you can change your password and notification preferences.',
                         },
                         templates: {
-                            title: 'Criteria Templates',
-                            description: 'Here you can create and manage templates for new projects.',
+                            title: 'Templates',
+                            description: 'Manage templates for inspection items. Templates can be used when creating new projects.',
+                            create: 'Create Template',
+                            createTitle: 'Create New Template',
+                            editTitle: 'Edit Template',
+                            name: 'Template Name',
+                            items: 'Inspection Items',
+                            deleteConfirm: 'Delete this template?',
+                            select: 'Optional: Select a template to pre-fill items', // <-- Добавлено для формы проекта
                         },
                         global: {
                             title: 'Global Application Settings',
@@ -204,6 +214,8 @@ i18n
                             managerMsg: 'Bitte geben Sie den Manager ein!',
                             status: 'Status',
                             statusMsg: 'Bitte wählen Sie den Status!',
+                            basePlannedDate: 'Geplantes Startdatum für Vorlagenpunkte',
+                            basePlannedDateMsg: 'Bitte wählen Sie ein geplantes Startdatum',
                         },
                     },
                     /* ---------- USERS PAGE ---------- */
@@ -238,8 +250,15 @@ i18n
                             description: 'Hier können Sie Ihr Passwort und Ihre Benachrichtigungseinstellungen ändern.',
                         },
                         templates: {
-                            title: 'Kriterienvorlagen',
-                            description: 'Hier können Sie Vorlagen für neue Projekte erstellen und verwalten.',
+                            title: 'Vorlagen',
+                            description: 'Verwalten Sie Vorlagen für Prüfpositionen. Vorlagen können beim Erstellen neuer Projekte verwendet werden.',
+                            create: 'Vorlage erstellen',
+                            createTitle: 'Neue Vorlage erstellen',
+                            editTitle: 'Vorlage bearbeiten',
+                            name: 'Vorlagenname',
+                            items: 'Prüfpositionen',
+                            deleteConfirm: 'Diese Vorlage löschen?',
+                            select: 'Optional: Vorlage zur Vorausfüllung der Positionen auswählen', // <-- Добавлено
                         },
                         global: {
                             title: 'Globale Anwendungseinstellungen',

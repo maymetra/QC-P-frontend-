@@ -401,3 +401,66 @@ export function getGlobalEvents() {
         return [];
     }
 }
+
+// ... (существующий код файла mockData.js) ...
+
+/* =========================
+ * Управление шаблонами (Templates)
+ * ========================= */
+
+const TEMPLATES_KEY = 'qc-templates';
+
+/**
+ * Возвращает все сохраненные шаблоны.
+ * @returns {Array<{name: string, items: string[]}>}
+ */
+export function getTemplates() {
+    try {
+        const templatesRaw = localStorage.getItem(TEMPLATES_KEY);
+        return templatesRaw ? JSON.parse(templatesRaw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+/**
+ * Сохраняет или обновляет шаблон.
+ * @param {string} name - Имя шаблона.
+ * @param {string[]} items - Массив inspection items.
+ */
+export function saveTemplate(name, items) {
+    const templates = getTemplates();
+    const existingIndex = templates.findIndex(t => t.name === name);
+
+    if (existingIndex > -1) {
+        // Обновляем существующий
+        templates[existingIndex].items = items;
+    } else {
+        // Добавляем новый
+        templates.push({ name, items });
+    }
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+/**
+ * Удаляет шаблон по имени.
+ * @param {string} name - Имя шаблона для удаления.
+ */
+export function deleteTemplate(name) {
+    let templates = getTemplates();
+    templates = templates.filter(t => t.name !== name);
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+/**
+ * Возвращает плоский список всех inspection items из базы знаний.
+ * @returns {Array<{key: string, title: string}>}
+ */
+export function getKnowledgeBaseItems() {
+    return knowledgeBase.flatMap(category =>
+        category.items.map(item => ({
+            key: item,
+            title: item,
+        }))
+    );
+}

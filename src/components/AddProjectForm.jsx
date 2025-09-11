@@ -1,12 +1,14 @@
 // src/components/AddProjectForm.jsx
 import React from 'react';
-import { Form, Input, Select } from 'antd';
+import { Form, Input, Select, DatePicker } from 'antd'; // <-- Добавлен DatePicker
 import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;
 
-export default function AddProjectForm({ form, onFinish, initialValues, managers = [] }) {
+export default function AddProjectForm({ form, onFinish, initialValues, managers = [], templates = [] }) {
     const { t } = useTranslation();
+
+    const selectedTemplate = Form.useWatch('template', form); // Следим за изменением выбранного шаблона
 
     return (
         <Form
@@ -16,6 +18,26 @@ export default function AddProjectForm({ form, onFinish, initialValues, managers
             onFinish={onFinish}
             initialValues={initialValues}
         >
+            <Form.Item
+                name="template"
+                label={t('settingsPage.templates.title', {defaultValue: 'Template'})}
+            >
+                <Select allowClear placeholder={t('settingsPage.templates.select', {defaultValue: 'Optional: Select a template to pre-fill items'})}>
+                    {templates.map(t => <Option key={t.name} value={t.name}>{t.name}</Option>)}
+                </Select>
+            </Form.Item>
+
+            {/* <-- НОВОЕ ПОЛЕ: Базовая дата для шаблона --> */}
+            {selectedTemplate && ( // Показываем это поле только если выбран шаблон
+                <Form.Item
+                    name="basePlannedDate"
+                    label={t('projects.form.basePlannedDate', {defaultValue: 'Base Planned Date for Template Items'})}
+                    rules={[{ required: true, message: t('projects.form.basePlannedDateMsg', {defaultValue: 'Please select a base planned date'}) }]}
+                >
+                    <DatePicker style={{ width: '100%' }} />
+                </Form.Item>
+            )}
+
             <Form.Item
                 name="name"
                 label={t('projects.form.name')}
@@ -37,7 +59,6 @@ export default function AddProjectForm({ form, onFinish, initialValues, managers
                 label={t('projects.form.manager')}
                 rules={[{ required: true, message: t('projects.form.managerMsg') }]}
             >
-                {/* Заменяем Input на Select */}
                 <Select showSearch placeholder={t('projects.form.managerMsg')}>
                     {managers.map(name => (
                         <Option key={name} value={name}>
