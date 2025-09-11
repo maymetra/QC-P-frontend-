@@ -4,9 +4,9 @@ import LoginPage from './pages/LoginPage';
 import ProjectsListPage from './pages/ProjectsListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
-// ▼▼▼ Импортируем новые страницы ▼▼▼
 import UsersPage from './pages/UsersPage';
 import SettingsPage from './pages/SettingsPage';
+import ArchivedProjectsPage from './pages/ArchivedProjectsPage'; // <-- Импортируем новую страницу
 
 export default function App() {
     return (
@@ -17,9 +17,8 @@ export default function App() {
             {/* ▼▼▼ Защищенная зона ▼▼▼ */}
             <Route element={<ProtectedRoute />}>
                 <Route path="/projects" element={<ProjectsListPage />} />
+                <Route path="/projects/archive" element={<ArchivedProjectsPage />} /> {/* <-- Добавляем роут */}
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-
-                {/* ▼▼▼ Добавлены маршруты для новых страниц ▼▼▼ */}
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
             </Route>

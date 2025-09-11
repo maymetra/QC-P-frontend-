@@ -17,23 +17,29 @@ const { Option } = Select;
 export default function ProjectsListPage() {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
-    const navigate = useNavigate(); // <-- ПЕРЕНЕСЕНО СЮДА
+    const navigate = useNavigate();
 
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [projects, setProjects] = useState([]);
+
+    // Обновляем логику для фильтрации
+    const activeProjects = useMemo(() => {
+        return projects.filter(p => p.status !== 'finished');
+    }, [projects]);
+
     useEffect(() => {
         setProjects(filterProjectsForUser(user));
-        }, [user]);
+    }, [user]);
     const [filters, setFilters] = useState({ q: '', kunde: 'all', status: 'all' });
 
     const kundeOptions = useMemo(() => {
-        const set = new Set(projects.map(p => p.kunde).filter(Boolean));
+        const set = new Set(activeProjects.map(p => p.kunde).filter(Boolean));
         return ['all', ...Array.from(set)];
-    }, [projects]);
+    }, [activeProjects]);
 
     const filtered = useMemo(() => {
-        return projects.filter(p => {
+        return activeProjects.filter(p => {
             const byQ =
                 !filters.q ||
                 p.name.toLowerCase().includes(filters.q.toLowerCase()) ||
@@ -42,7 +48,7 @@ export default function ProjectsListPage() {
             const byStatus = filters.status === 'all' || p.status === filters.status;
             return byQ && byKunde && byStatus;
         });
-    }, [projects, filters]);
+    }, [activeProjects, filters]);
 
     const canCreate = user?.role === 'auditor' || user?.role === 'admin';
 
@@ -53,8 +59,8 @@ export default function ProjectsListPage() {
     const closeCreate = () => setIsModalVisible(false);
 
     const handleCreate = values => {
-        const newProject = createProject(values);
-        setProjects(filterProjectsForUser(user));
+        createProject(values); // createProject уже обновляет mockData
+        setProjects(filterProjectsForUser(user)); // Перечитываем все проекты
         setIsModalVisible(false);
         form.resetFields();
     };
@@ -112,7 +118,6 @@ export default function ProjectsListPage() {
                         >
                             <Option value="all">{t('projects.filters.statusAll')}</Option>
                             <Option value="in_progress">{t('projects.status.in_progress')}</Option>
-                            <Option value="finished">{t('projects.status.finished')}</Option>
                             <Option value="on_hold">{t('projects.status.on_hold')}</Option>
                         </Select>
                         <Button onClick={() => setFilters({ q: '', kunde: 'all', status: 'all' })}>
@@ -134,11 +139,9 @@ export default function ProjectsListPage() {
                                     <Tag
                                         key="status"
                                         color={
-                                            item.status === 'finished'
-                                                ? 'green'
-                                                : item.status === 'in_progress'
-                                                    ? 'geekblue'
-                                                    : 'gold'
+                                            item.status === 'in_progress'
+                                                ? 'geekblue'
+                                                : 'gold'
                                         }
                                     >
                                         {t(`projects.status.${item.status}`, { defaultValue: item.status })}

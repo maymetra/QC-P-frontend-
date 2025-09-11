@@ -5,6 +5,7 @@ import {
     AppstoreOutlined,
     UserOutlined,
     SettingOutlined,
+    InboxOutlined, // <-- Импортируем иконку
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +20,12 @@ export default function NavigationTab({ activeKey }) {
         {
             key: '/projects',
             icon: <AppstoreOutlined />,
-            label: t('menu.projects') // <-- Используем новый ключ
+            label: t('menu.projects')
+        },
+        { // <-- Добавляем новый пункт меню
+            key: '/projects/archive',
+            icon: <InboxOutlined />,
+            label: t('menu.archive', {defaultValue: 'Archive'})
         },
     ];
 

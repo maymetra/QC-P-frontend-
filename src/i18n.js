@@ -14,6 +14,7 @@ i18n
                         projects: 'Projects',
                         users: 'Users',
                         settings: 'Settings',
+                        archive: 'Archive',
                     },
                     /* ---------- TABLE HEADERS ---------- */
                     table: {
@@ -132,6 +133,7 @@ i18n
                         projects: 'Projekte',
                         users: 'Benutzer',
                         settings: 'Einstellungen',
+                        archive: 'Archiv',
                     },
                     /* ---------- TABLE HEADERS ---------- */
                     table: {
