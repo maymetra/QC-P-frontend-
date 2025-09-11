@@ -3,7 +3,7 @@ import {
     Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm
 } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined } from '@ant-design/icons';
+import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, SendOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,7 +13,8 @@ export default function JirasTable({ onLog }) {
     const { user } = useAuth();
     const role = user?.role;
     const currentUserName = user?.name;
-    const canEdit = role === 'admin' || role === 'auditor';
+    const isAuditor = role === 'admin' || role === 'auditor';
+    const isManager = role === 'manager';
 
     const storageKey = useMemo(() => `jiraItems:${projectId || 'global'}`, [projectId]);
 
@@ -27,7 +28,7 @@ export default function JirasTable({ onLog }) {
             plannedDate: '2025-08-20',
             closedDate: '2025-08-19',
             document: { name: 'Projektplan_final_v1.pdf', url: 'https://example.com/docs/projektplan_final.pdf' },
-            status: true,
+            status: 'approved', // 'approved', 'rejected', 'pending'
             comment: 'Plan genehmigt. Alle Ressourcen sind bestätigt.',
             attachments: [],
         },
@@ -40,7 +41,7 @@ export default function JirasTable({ onLog }) {
             plannedDate: '2025-08-25',
             closedDate: '',
             document: null,
-            status: false,
+            status: 'rejected',
             comment: 'In Bearbeitung. Warten auf Informationen von der Rechtsabteilung.',
             attachments: [],
         },
@@ -77,7 +78,7 @@ export default function JirasTable({ onLog }) {
             plannedDate: planned,
             closedDate: '',
             document: null,
-            status: false,
+            status: 'rejected',
             comment: '',
             attachments: [],
         };
@@ -95,7 +96,38 @@ export default function JirasTable({ onLog }) {
         }
     };
 
-    // -------- Status change (approve/reject) --------
+    // -------- Edit measure --------
+    const [editOpen, setEditOpen] = useState(false);
+    const [editForm] = Form.useForm();
+    const [editingKey, setEditingKey] = useState(null);
+
+    const openEdit = (record) => {
+        setEditingKey(record.key);
+        editForm.setFieldsValue({
+            action: record.action,
+            author: record.author,
+        });
+        setEditOpen(true);
+    };
+
+    const handleEdit = () => editForm.submit();
+
+    const onEditFinish = (values) => {
+        const author = (values.author || '').trim() || currentUserName;
+        setData(prev =>
+            prev.map(r =>
+                r.key === editingKey
+                    ? { ...r, action: (values.action || '').trim(), author }
+                    : r
+            )
+        );
+        setEditOpen(false);
+        setEditingKey(null);
+        editForm.resetFields();
+        message.success(t('Saved', { defaultValue: 'Saved' }));
+    };
+
+    // -------- Status change --------
     const isoToday = () => {
         const d = new Date();
         const y = d.getFullYear();
@@ -104,54 +136,38 @@ export default function JirasTable({ onLog }) {
         return `${y}-${m}-${day}`;
     };
 
-    const approve = (record) => {
+    const handleStatusChange = (key, newStatus) => {
         const today = isoToday();
         setData(prev =>
-            prev.map(r =>
-                r.key === record.key
-                    ? { ...r, status: true, reviewer: currentUserName || r.reviewer, closedDate: today }
-                    : r
-            )
+            prev.map(r => {
+                if (r.key !== key) return r;
+                return {
+                    ...r,
+                    status: newStatus,
+                    reviewer: isAuditor ? (currentUserName || r.reviewer) : r.reviewer,
+                    closedDate: newStatus === 'approved' ? today : ''
+                };
+            })
         );
+
         if (typeof onLog === 'function') {
+            const record = data.find(r => r.key === key);
             onLog({
                 kind: 'item_status',
                 by: currentUserName,
                 ts: new Date().toISOString(),
-                message: `${record.item} -> Status changed to approved by ${currentUserName} on ${today}`
+                message: `${record.item} -> Status changed to ${newStatus} by ${currentUserName}`
             });
         }
-        message.success(t('Approved', { defaultValue: 'Approved' }));
     };
 
-    const reject = (record) => {
-        const today = isoToday();
-        setData(prev =>
-            prev.map(r =>
-                r.key === record.key
-                    ? { ...r, status: false, reviewer: currentUserName || r.reviewer, closedDate: '' }
-                    : r
-            )
-        );
-        if (typeof onLog === 'function') {
-            onLog({
-                kind: 'item_status',
-                by: currentUserName,
-                ts: new Date().toISOString(),
-                message: `${record.item} -> Status changed to rejected by ${currentUserName} on ${today}`
-            });
-        }
-        message.info(t('Rejected', { defaultValue: 'Rejected' }));
-    };
 
     // -------- Remarks (+ attachments) --------
     const [remarksOpen, setRemarksOpen] = useState(false);
     const [remarksForm] = Form.useForm();
-    const [editingKey, setEditingKey] = useState(null);
     const [files, setFiles] = useState([]);
 
     const openRemarks = (record) => {
-        if (!canEdit) return;
         setEditingKey(record.key);
         remarksForm.setFieldsValue({ comment: record.comment || '' });
         setFiles(record.attachments || []);
@@ -187,7 +203,14 @@ export default function JirasTable({ onLog }) {
     const columns = [
         { title: t('table.pruefungsgegenstand'), dataIndex: 'item',
             sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
-        { title: t('table.massnahme'), dataIndex: 'action' },
+        { title: t('table.massnahme'), dataIndex: 'action',
+            render: (text, record) => (
+                <Space>
+                    <span>{text}</span>
+                    {isManager && <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)} />}
+                </Space>
+            )
+        },
         { title: t('table.autor'), dataIndex: 'author',
             sorter: (a, b) => (a.author || '').localeCompare(b.author || ''),
             filters: [
@@ -214,24 +237,43 @@ export default function JirasTable({ onLog }) {
                     </a>
                 ) : null },
         { title: t('table.status'), dataIndex: 'status',
-            render: (s, record) => {
-                const tag = <Tag color={s ? 'green' : 'red'}>{s ? '✓' : '✗'}</Tag>;
-                if (!canEdit) return tag;
-                return (
-                    <Popconfirm
-                        title={t('Confirm approval?', { defaultValue: 'Confirm approval?' })}
-                        okText={t('Yes', { defaultValue: 'Yes' })}
-                        cancelText={t('No', { defaultValue: 'No' })}
-                        onConfirm={() => approve(record)}
-                        onCancel={() => reject(record)}
-                    >
-                        <a style={{ cursor: 'pointer' }}>{tag}</a>
-                    </Popconfirm>
-                );
+            render: (status, record) => {
+                const color = status === 'approved' ? 'green' : status === 'pending' ? 'orange' : 'red';
+                const text = t(`itemStatus.${status}`, { defaultValue: status });
+                const tag = <Tag color={color}>{text}</Tag>;
+
+                if (isAuditor) {
+                    return (
+                        <Popconfirm
+                            title={t('Change status?', { defaultValue: 'Change status?' })}
+                            onConfirm={() => handleStatusChange(record.key, 'approved')}
+                            onCancel={() => handleStatusChange(record.key, 'rejected')}
+                            okText={t('itemStatus.approved')}
+                            cancelText={t('itemStatus.rejected')}
+                        >
+                            <a style={{ cursor: 'pointer' }}>{tag}</a>
+                        </Popconfirm>
+                    );
+                }
+
+                if (isManager && status === 'rejected') {
+                    return (
+                        <Popconfirm
+                            title={t('Submit for approval?', { defaultValue: 'Submit for approval?' })}
+                            onConfirm={() => handleStatusChange(record.key, 'pending')}
+                            okText={t('Yes')}
+                            cancelText={t('No')}
+                        >
+                            <a style={{ cursor: 'pointer' }}>{tag}</a>
+                        </Popconfirm>
+                    );
+                }
+                return tag;
             },
             filters: [
-                { text: t('filter.closed'), value: true },
-                { text: t('filter.open'),   value: false },
+                { text: t('itemStatus.approved'), value: 'approved' },
+                { text: t('itemStatus.rejected'), value: 'rejected' },
+                { text: t('itemStatus.pending'),  value: 'pending' },
             ], onFilter: (v, r) => r.status === v },
         { title: t('table.bemerkungen'), dataIndex: 'comment',
             render: (text, record) => {
@@ -242,15 +284,13 @@ export default function JirasTable({ onLog }) {
                         <span>{text || ''}</span>
                     </Space>
                 );
-                return canEdit
-                    ? <Button type="link" onClick={() => openRemarks(record)}>{content}</Button>
-                    : content;
+                return <Button type="link" onClick={() => openRemarks(record)}>{content}</Button>
             } },
     ];
 
     return (
         <>
-            {canEdit && (
+            {isAuditor && (
                 <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} className="!mb-3">
                     {t('Add inspection item', { defaultValue: 'Add inspection item' })}
                 </Button>
@@ -284,6 +324,26 @@ export default function JirasTable({ onLog }) {
                     </Form.Item>
                 </Form>
             </Modal>
+
+            {/* Edit measure */}
+            <Modal
+                title={t('Edit Measure', { defaultValue: 'Edit Measure' })}
+                open={editOpen}
+                onCancel={() => setEditOpen(false)}
+                onOk={handleEdit}
+                okText={t('Save', { defaultValue: 'Save' })}
+                cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+            >
+                <Form layout="vertical" form={editForm} onFinish={onEditFinish}>
+                    <Form.Item name="action" label={t('table.massnahme')}>
+                        <Input.TextArea rows={4} />
+                    </Form.Item>
+                    <Form.Item name="author" label={t('table.autor')}>
+                        <Input />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
 
             {/* Edit remarks */}
             <Modal

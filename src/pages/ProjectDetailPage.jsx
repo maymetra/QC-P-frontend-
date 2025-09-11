@@ -21,7 +21,7 @@ export default function ProjectDetailPage() {
 
     // локальный статус проекта (для UI)
     const [projStatus, setProjStatus] = useState(project?.status || 'in_progress');
-    const canAdminAudit = user?.role === 'admin' || user?.role === 'auditor';
+    const canChangeProjectStatus = user?.role === 'admin' || user?.role === 'auditor';
 
     const statusColor =
         projStatus === 'finished' ? 'green' :
@@ -80,14 +80,16 @@ export default function ProjectDetailPage() {
                             QS-Plan: {project ? project.name : t('projects.notFound')}
                         </Title>
 
-                        {canAdminAudit && project && (
+                        {project && (
                             <Space>
                                 <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
                                     {t('History', { defaultValue: 'History' })}
                                 </Button>
-                                <Button type="primary" onClick={openStatusModal}>
-                                    {t('Change project status', { defaultValue: 'Change project status' })}
-                                </Button>
+                                {canChangeProjectStatus && (
+                                    <Button type="primary" onClick={openStatusModal}>
+                                        {t('Change project status', { defaultValue: 'Change project status' })}
+                                    </Button>
+                                )}
                             </Space>
                         )}
                     </Space>

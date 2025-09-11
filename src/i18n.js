@@ -15,7 +15,7 @@ i18n
                         users: 'Users',
                         settings: 'Settings',
                     },
-                    /* ---------- TABLE HEADERS (RESTORED) ---------- */
+                    /* ---------- TABLE HEADERS ---------- */
                     table: {
                         pruefungsgegenstand: 'Inspection Item',
                         massnahme: 'Measure',
@@ -27,17 +27,19 @@ i18n
                         status: 'Status',
                         bemerkungen: 'Remarks',
                     },
-                    /* ---------- FILTER LABELS (RESTORED) ---------- */
+                    /* ---------- ITEM STATUSES ---------- */
+                    itemStatus: {
+                        approved: 'Approved',
+                        rejected: 'Rejected',
+                        pending: 'Pending for approval',
+                    },
+                    /* ---------- FILTER LABELS ---------- */
                     filter: {
                         lamine: 'Lamine',
                         judith: 'Judith',
                         artem: 'Artem',
                         closed: 'Closed (✓)',
                         open: 'Open (✗)',
-                    },
-                    /* ---------- TOOLTIPS (RESTORED) ---------- */
-                    tooltip: {
-                        openDocument: 'Open document',
                     },
                     /* ---------- LOGIN ---------- */
                     login: {
@@ -131,7 +133,7 @@ i18n
                         users: 'Benutzer',
                         settings: 'Einstellungen',
                     },
-                    /* ---------- TABLE HEADERS (RESTORED) ---------- */
+                    /* ---------- TABLE HEADERS ---------- */
                     table: {
                         pruefungsgegenstand: 'Prüfungsgegenstand',
                         massnahme: 'Maßnahme',
@@ -143,17 +145,19 @@ i18n
                         status: 'Status',
                         bemerkungen: 'Bemerkungen',
                     },
-                    /* ---------- FILTER LABELS (RESTORED) ---------- */
+                    /* ---------- ITEM STATUSES ---------- */
+                    itemStatus: {
+                        approved: 'Genehmigt',
+                        rejected: 'Abgelehnt',
+                        pending: 'Wartet auf Genehmigung',
+                    },
+                    /* ---------- FILTER LABELS ---------- */
                     filter: {
                         lamine: 'Lamine',
                         judith: 'Judith',
                         artem: 'Artem',
                         closed: 'Geschlossen (✓)',
                         open: 'Offen (✗)',
-                    },
-                    /* ---------- TOOLTIPS (RESTORED) ---------- */
-                    tooltip: {
-                        openDocument: 'Dokument öffnen',
                     },
                     /* ---------- LOGIN ---------- */
                     login: {

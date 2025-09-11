@@ -117,8 +117,8 @@ export function fetchProjects() {
 
 /**
  * Асинхронно возвращает проекты с учётом роли пользователя:
- *  - admin/auditor: все проекты
- *  - manager: только проекты, где он manager
+ * - admin/auditor: все проекты
+ * - manager: только проекты, где он manager
  * @param {{role:string, name:string}} user
  * @returns {Promise<Array>}
  */
