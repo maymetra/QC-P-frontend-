@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
 import JirasTable from '../components/JirasTable';
 import LanguageSwitch from '../components/LanguageSwitch';
-import { mockProjects } from '../services/mockData';
+import { mockProjects, updateProject } from '../services/mockData'; // <-- Импортируем updateProject
 import { useAuth } from '../context/AuthContext';
 import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -21,9 +21,8 @@ export default function ProjectDetailPage() {
 
     const project = mockProjects.find(p => p.id === projectId);
     const tableRef = useRef(null);
-    const [isExporting, setIsExporting] = useState(false); // <-- Состояние для экспорта
+    const [isExporting, setIsExporting] = useState(false);
 
-    // ... (остальной код без изменений)
     const [projStatus, setProjStatus] = useState(project?.status || 'in_progress');
     const canChangeProjectStatus = user?.role === 'admin' || user?.role === 'auditor';
 
@@ -48,6 +47,7 @@ export default function ProjectDetailPage() {
     const saveStatus = () => {
         const prev = projStatus;
         setProjStatus(statusDraft);
+        updateProject(projectId, { status: statusDraft }); // <-- **ВОТ ИСПРАВЛЕНИЕ**
         setStatusModal(false);
         logEvent({
             kind: 'project_status',
@@ -59,9 +59,8 @@ export default function ProjectDetailPage() {
 
     // ------- Экспорт в PDF -------
     const handleExportPDF = () => {
-        setIsExporting(true); // <-- Включаем режим экспорта
+        setIsExporting(true);
 
-        // Даем React время перерисовать компоненты в "режиме печати"
         setTimeout(() => {
             const input = tableRef.current;
             if (!input) {
@@ -83,7 +82,7 @@ export default function ProjectDetailPage() {
                     const canvasWidth = canvas.width;
                     const canvasHeight = canvas.height;
                     const ratio = canvasWidth / canvasHeight;
-                    const width = pdfWidth - 20; // Оставляем поля
+                    const width = pdfWidth - 20;
                     const height = width / ratio;
 
                     const finalHeight = height > pdfHeight - 20 ? pdfHeight - 20 : height;
@@ -92,7 +91,7 @@ export default function ProjectDetailPage() {
                     pdf.save(`qs-plan-${project?.name || projectId}.pdf`);
                 })
                 .finally(() => {
-                    setIsExporting(false); // <-- Выключаем режим экспорта
+                    setIsExporting(false);
                 });
         }, 100);
     };
@@ -156,10 +155,8 @@ export default function ProjectDetailPage() {
                         </Space>
                     )}
 
-                    {/* Передаём ref и флаг экспорта в таблицу */}
                     <JirasTable ref={tableRef} onLog={logEvent} isExporting={isExporting} />
 
-                    {/* ... (остальной код модальных окон) ... */}
                     <Modal
                         title={t('Change project status', { defaultValue: 'Change project status' })}
                         open={statusModal}
