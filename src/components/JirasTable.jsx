@@ -1,3 +1,4 @@
+// src/components/JirasTable.jsx
 import React, { useEffect, useMemo, useState, forwardRef } from 'react';
 import {
     Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm, List, Radio, Select
@@ -10,7 +11,7 @@ import { knowledgeBase } from '../services/mockData';
 
 const { Option } = Select;
 
-const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Принимаем isExporting
+const JirasTable = forwardRef(({ onLog, isExporting }, ref) => {
     const { t } = useTranslation();
     const { projectId } = useParams();
     const { user } = useAuth();
@@ -31,7 +32,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
             plannedDate: '2025-08-20',
             closedDate: '2025-08-19',
             documents: [{ uid: 'doc1', name: 'Projektplan_final_v1.pdf', url: 'https://example.com/docs/projektplan_final.pdf' }],
-            status: 'approved', // 'approved', 'rejected', 'pending'
+            status: 'approved', // 'approved', 'rejected', 'pending', 'open'
             comment: 'Plan genehmigt. Alle Ressourcen sind bestätigt.',
             attachments: [],
         },
@@ -44,7 +45,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
             plannedDate: '2025-08-25',
             closedDate: '',
             documents: [],
-            status: 'rejected',
+            status: 'open', // <-- Статус по умолчанию для новых
             comment: 'In Bearbeitung. Warten auf Informationen von der Rechtsabteilung.',
             attachments: [],
         },
@@ -63,7 +64,6 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
         try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch { /* empty */ }
     }, [data, storageKey]);
 
-    // ... (весь код до определения колонок остается без изменений)
     // -------- Add/Edit/Delete Item Logic --------
     const [addOpen, setAddOpen] = useState(false);
     const [addForm] = Form.useForm();
@@ -96,7 +96,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
             plannedDate: planned,
             closedDate: '',
             documents: [],
-            status: 'rejected',
+            status: 'open', // <-- ИЗМЕНЕНО: новый item создается со статусом 'open'
             comment: '',
             attachments: [],
         };
@@ -113,6 +113,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
         }
     };
 
+    // ... (остальной код до колонок без изменений)
     const handleDelete = (key) => {
         setData(prev => prev.filter(item => item.key !== key));
         message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
@@ -282,7 +283,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
             sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
         { title: t('table.massnahme'), dataIndex: 'action',
             render: (text, record) => {
-                if (isExporting) return text; // <-- Режим экспорта
+                if (isExporting) return text;
                 return (
                     <Space>
                         <span>{text}</span>
@@ -294,7 +295,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
         { title: t('table.autor'), dataIndex: 'author',
             sorter: (a, b) => (a.author || '').localeCompare(b.author || '')},
         { title: t('table.pruefer'), dataIndex: 'reviewer',
-            filters: !isExporting ? [ // <-- Скрываем фильтры при экспорте
+            filters: !isExporting ? [
                 { text: t('filter.lamine'), value: 'Lamine' },
                 { text: t('filter.judith'), value: 'Judith' },
                 { text: t('filter.artem'),  value: 'Artem' },
@@ -354,9 +355,13 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
         { title: t('table.status'), dataIndex: 'status',
             render: (status, record) => {
                 const text = t(`itemStatus.${status}`, { defaultValue: status });
-                if (isExporting) return text; // <-- Режим экспорта: просто текст
+                if (isExporting) return text;
 
-                const color = status === 'approved' ? 'green' : status === 'pending' ? 'orange' : 'red';
+                // ИЗМЕНЕНО: Добавляем цвет для статуса 'open'
+                const color = status === 'approved' ? 'green'
+                    : status === 'pending' ? 'orange'
+                        : status === 'rejected' ? 'red'
+                            : 'default'; // Нейтральный цвет для 'open'
                 const tag = <Tag color={color}>{text}</Tag>;
 
                 if (isAuditor) {
@@ -373,7 +378,8 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
                     );
                 }
 
-                if (isManager && status === 'rejected') {
+                // ИЗМЕНЕНО: Менеджер может отправить на проверку и 'open', и 'rejected'
+                if (isManager && (status === 'rejected' || status === 'open')) {
                     return (
                         <Popconfirm
                             title={t('Submit for approval?', { defaultValue: 'Submit for approval?' })}
@@ -387,10 +393,11 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
                 }
                 return tag;
             },
-            filters: !isExporting ? [ // <-- Скрываем фильтры при экспорте
+            filters: !isExporting ? [
                 { text: t('itemStatus.approved'), value: 'approved' },
                 { text: t('itemStatus.rejected'), value: 'rejected' },
                 { text: t('itemStatus.pending'),  value: 'pending' },
+                { text: t('itemStatus.open'), value: 'open' }, // <-- Добавляем фильтр
             ] : null, onFilter: (v, r) => r.status === v },
         { title: t('table.bemerkungen'), dataIndex: 'comment',
             render: (text, record) => {
@@ -431,7 +438,7 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
             title: t('Actions', {defaultValue: 'Actions'}),
             key: 'actions',
             render: (_, record) => {
-                if (isAuditor && !isExporting) { // <-- Скрываем при экспорте
+                if (isAuditor && !isExporting) {
                     return (
                         <Popconfirm
                             title={t('Delete this item?', {defaultValue: 'Delete this item?'})}
@@ -449,12 +456,13 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
     ];
 
     if (isExporting) {
-        columns = columns.filter(col => col.key !== 'actions'); // <-- Убираем колонку Actions при экспорте
+        columns = columns.filter(col => col.key !== 'actions');
     }
 
+    // ... (остальной код компонента без изменений)
     return (
         <div ref={ref}>
-            {isAuditor && !isExporting && ( // <-- Скрываем кнопку при экспорте
+            {isAuditor && !isExporting && (
                 <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} className="!mb-3">
                     {t('Add inspection item', { defaultValue: 'Add inspection item' })}
                 </Button>
@@ -462,8 +470,6 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
 
             <Table columns={columns} dataSource={data} rowKey="key" scroll={{ x: true }} pagination={false} />
 
-            {/* ... (модальные окна без изменений) ... */}
-            {/* Add item Modal */}
             <Modal
                 title={t('Add inspection item', { defaultValue: 'Add inspection item' })}
                 open={addOpen}
@@ -531,7 +537,6 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
                 </Form>
             </Modal>
 
-            {/* Edit measure Modal */}
             <Modal
                 title={t('Edit Measure', { defaultValue: 'Edit Measure' })}
                 open={editOpen}
@@ -550,7 +555,6 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
                 </Form>
             </Modal>
 
-            {/* Upload Document Modal */}
             <Modal
                 title={t('Manage Documents', {defaultValue: 'Manage Documents'})}
                 open={docUploadOpen}
@@ -569,8 +573,6 @@ const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Прин
                 </Upload>
             </Modal>
 
-
-            {/* Edit remarks Modal */}
             <Modal
                 title={t('Edit remarks', { defaultValue: 'Edit remarks' })}
                 open={remarksOpen}

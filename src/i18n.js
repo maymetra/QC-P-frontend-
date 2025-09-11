@@ -33,6 +33,7 @@ i18n
                         approved: 'Approved',
                         rejected: 'Rejected',
                         pending: 'Pending for approval',
+                        open: 'Open',
                     },
                     /* ---------- FILTER LABELS ---------- */
                     filter: {
@@ -152,6 +153,7 @@ i18n
                         approved: 'Genehmigt',
                         rejected: 'Abgelehnt',
                         pending: 'Wartet auf Genehmigung',
+                        open: 'Offen',
                     },
                     /* ---------- FILTER LABELS ---------- */
                     filter: {
