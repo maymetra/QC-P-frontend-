@@ -7,7 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import UsersPage from './pages/UsersPage';
 import SettingsPage from './pages/SettingsPage';
 import ArchivedProjectsPage from './pages/ArchivedProjectsPage';
-import DashboardPage from './pages/DashboardPage'; // <-- Импорт
+import DashboardPage from './pages/DashboardPage';
 
 export default function App() {
     return (
@@ -17,7 +17,8 @@ export default function App() {
 
             {/* ▼▼▼ Защищенная зона ▼▼▼ */}
             <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<DashboardPage />} /> {/* <-- Роут для дашборда */}
+                {/* Убираем вложенный роутинг, защита будет внутри самого компонента */}
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/projects" element={<ProjectsListPage />} />
                 <Route path="/projects/archive" element={<ArchivedProjectsPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
@@ -25,7 +26,7 @@ export default function App() {
                 <Route path="/settings" element={<SettingsPage />} />
             </Route>
 
-            {/* Редирект с главной на дашборд */}
+            {/* Редирект с главной (остается прежним) */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             {/* Страница не найдена */}

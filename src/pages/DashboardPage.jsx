@@ -7,7 +7,7 @@ import { ExclamationCircleOutlined, FieldTimeOutlined, LogoutOutlined } from '@a
 import NavigationTab from '../components/NavigationTab';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { getGlobalEvents, mockProjects as allProjects } from '../services/mockData';
-import { useNavigate } from 'react-router-dom'; // <-- Импортируем useNavigate
+import { useNavigate, Navigate } from 'react-router-dom'; // <-- Добавляем Navigate
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -15,14 +15,19 @@ const { Title, Text } = Typography;
 export default function DashboardPage() {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
-    const navigate = useNavigate(); // <-- Инициализируем навигацию
+    const navigate = useNavigate();
 
-    // Сохраняем не только количество, но и сами объекты
+    // <-- **ВОТ НОВАЯ ЛОГИКА ЗАЩИТЫ** -->
+    // Если роль не подходит, просто перенаправляем на проекты
+    const isAuthorized = user?.role === 'admin' || user?.role === 'auditor';
+    if (!isAuthorized) {
+        return <Navigate to="/projects" replace />;
+    }
+
+    // ... (остальной код компонента остается без изменений)
     const [pendingItems, setPendingItems] = useState([]);
     const [overdueItems, setOverdueItems] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
-
-    // Состояния для модальных окон
     const [isPendingModalVisible, setIsPendingModalVisible] = useState(false);
     const [isOverdueModalVisible, setIsOverdueModalVisible] = useState(false);
 
@@ -79,7 +84,6 @@ export default function DashboardPage() {
                 <Content className="p-6 bg-gray-50">
                     <Title level={2} className="!mb-6">{t('menu.dashboard', {defaultValue: 'Dashboard'})}</Title>
                     <Row gutter={[16, 16]}>
-                        {/* Интерактивные карточки */}
                         <Col xs={24} sm={12}>
                             <Card hoverable onClick={() => setIsPendingModalVisible(true)}>
                                 <Statistic title={t('itemStatus.pending')} value={pendingItems.length} prefix={<FieldTimeOutlined />} />
@@ -120,7 +124,6 @@ export default function DashboardPage() {
                 </Content>
             </Layout>
 
-            {/* Модальное окно для "Pending Items" */}
             <Modal
                 title={t('itemStatus.pending')}
                 open={isPendingModalVisible}
@@ -143,7 +146,6 @@ export default function DashboardPage() {
                 />
             </Modal>
 
-            {/* Модальное окно для "Overdue Items" */}
             <Modal
                 title={t('itemStatus.overdue')}
                 open={isOverdueModalVisible}

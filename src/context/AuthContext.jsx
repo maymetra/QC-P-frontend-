@@ -6,8 +6,6 @@ import { loginRequest } from '../services/mockData';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    // ▼▼▼ 1. Инициализируем состояние из localStorage ▼▼▼
-    // Пытаемся получить пользователя из localStorage. Если его там нет, user будет null.
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem('user');
         try {
@@ -23,12 +21,15 @@ export const AuthProvider = ({ children }) => {
     const login = async (username, password) => {
         try {
             const userData = await loginRequest(username, password);
-
-            // ▼▼▼ 2. Сохраняем пользователя в localStorage после входа ▼▼▼
             localStorage.setItem('user', JSON.stringify(userData));
-
             setUser(userData);
-            navigate('/projects');
+
+            // <-- ИЗМЕНЕНО: Логика перенаправления в зависимости от роли -->
+            if (userData.role === 'admin' || userData.role === 'auditor') {
+                navigate('/dashboard');
+            } else {
+                navigate('/projects');
+            }
         } catch (error) {
             console.error(error);
             throw error;
@@ -36,9 +37,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        // ▼▼▼ 3. Очищаем localStorage при выходе ▼▼▼
         localStorage.removeItem('user');
-
         setUser(null);
         navigate('/login');
     };

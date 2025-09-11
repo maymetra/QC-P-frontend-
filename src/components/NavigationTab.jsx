@@ -6,7 +6,7 @@ import {
     UserOutlined,
     SettingOutlined,
     InboxOutlined,
-    DashboardOutlined, // <-- Импорт
+    DashboardOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -16,13 +16,20 @@ export default function NavigationTab({ activeKey }) {
     const navigate = useNavigate();
     const { t } = useTranslation();
     const { user } = useAuth();
+    const isAuditorOrAdmin = user?.role === 'admin' || user?.role === 'auditor';
 
-    const items = [
-        { // <-- Новый пункт меню
+    const items = [];
+
+    // Показываем дашборд только админу или аудитору
+    if (isAuditorOrAdmin) {
+        items.push({
             key: '/dashboard',
             icon: <DashboardOutlined />,
             label: t('menu.dashboard', {defaultValue: 'Dashboard'})
-        },
+        });
+    }
+
+    items.push(
         {
             key: '/projects',
             icon: <AppstoreOutlined />,
@@ -32,8 +39,8 @@ export default function NavigationTab({ activeKey }) {
             key: '/projects/archive',
             icon: <InboxOutlined />,
             label: t('menu.archive', {defaultValue: 'Archive'})
-        },
-    ];
+        }
+    );
 
     if (user && user.role === 'admin') {
         items.push({
