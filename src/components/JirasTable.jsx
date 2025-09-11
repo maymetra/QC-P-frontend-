@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm
+    Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm, List
 } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined } from '@ant-design/icons';
+import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,7 +27,7 @@ export default function JirasTable({ onLog }) {
             reviewer: 'Lamine',
             plannedDate: '2025-08-20',
             closedDate: '2025-08-19',
-            document: { name: 'Projektplan_final_v1.pdf', url: 'https://example.com/docs/projektplan_final.pdf' },
+            documents: [{ uid: 'doc1', name: 'Projektplan_final_v1.pdf', url: 'https://example.com/docs/projektplan_final.pdf' }],
             status: 'approved', // 'approved', 'rejected', 'pending'
             comment: 'Plan genehmigt. Alle Ressourcen sind bestätigt.',
             attachments: [],
@@ -40,7 +40,7 @@ export default function JirasTable({ onLog }) {
             reviewer: 'Judith',
             plannedDate: '2025-08-25',
             closedDate: '',
-            document: null,
+            documents: [],
             status: 'rejected',
             comment: 'In Bearbeitung. Warten auf Informationen von der Rechtsabteilung.',
             attachments: [],
@@ -77,7 +77,7 @@ export default function JirasTable({ onLog }) {
             reviewer: '',
             plannedDate: planned,
             closedDate: '',
-            document: null,
+            documents: [],
             status: 'rejected',
             comment: '',
             attachments: [],
@@ -133,33 +133,37 @@ export default function JirasTable({ onLog }) {
 
     const openDocUpload = (record) => {
         setEditingKey(record.key);
+        setDocFiles(record.documents || []);
         setDocUploadOpen(true);
     };
 
     const handleDocUpload = () => {
-        if (docFiles.length === 0) {
-            message.error(t('Please select a file to upload.', {defaultValue: 'Please select a file to upload.'}));
-            return;
-        }
-        const file = docFiles[0];
         setData(prev =>
             prev.map(r =>
                 r.key === editingKey
-                    ? { ...r, document: { name: file.name, url: URL.createObjectURL(file) } }
+                    ? { ...r, documents: docFiles }
                     : r
             )
         );
         setDocUploadOpen(false);
         setDocFiles([]);
         setEditingKey(null);
-        message.success(t('Document uploaded.', {defaultValue: 'Document uploaded.'}));
+        message.success(t('Documents updated.', {defaultValue: 'Documents updated.'}));
     };
 
     const beforeDocUpload = (file) => {
-        setDocFiles([file]);
+        const newFile = {
+            uid: file.uid,
+            name: file.name,
+            url: URL.createObjectURL(file)
+        };
+        setDocFiles(prev => [...prev, newFile]);
         return false;
     };
 
+    const onRemoveDoc = (file) => {
+        setDocFiles(prev => prev.filter(f => f.uid !== file.uid));
+    };
 
     // -------- Status change --------
     const isoToday = () => {
@@ -208,7 +212,16 @@ export default function JirasTable({ onLog }) {
         setRemarksOpen(true);
     };
 
-    const beforeUpload = (file) => { setFiles(prev => [...prev, file]); return false; };
+    const beforeUpload = (file) => {
+        const fileWithUrl = {
+            uid: file.uid,
+            name: file.name,
+            url: URL.createObjectURL(file), // Create a temporary URL for preview
+            originFileObj: file, // Keep original file object for potential upload
+        };
+        setFiles(prev => [...prev, fileWithUrl]);
+        return false; // Prevent default upload behavior
+    };
     const onRemoveFile = (file) => { setFiles(prev => prev.filter(f => f.uid !== file.uid)); };
     const submitRemarks = () => remarksForm.submit();
 
@@ -263,14 +276,35 @@ export default function JirasTable({ onLog }) {
         { title: t('table.istTermin'), dataIndex: 'closedDate',
             sorter: (a, b) => new Date(a.closedDate || 0) - new Date(b.closedDate || 0) },
         {
-            title: t('table.dokument'), dataIndex: 'document',
-            render: (doc, record) => {
-                if (doc && doc.url) {
+            title: t('table.dokument'), dataIndex: 'documents',
+            render: (docs, record) => {
+                const hasDocs = docs && docs.length > 0;
+                if (hasDocs) {
                     return (
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                            <LinkOutlined style={{ marginRight: 8 }} />
-                            {doc.name}
-                        </a>
+                        <div>
+                            <List
+                                size="small"
+                                dataSource={docs}
+                                renderItem={(doc) => (
+                                    <List.Item>
+                                        <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                                            <LinkOutlined /> {doc.name}
+                                        </a>
+                                    </List.Item>
+                                )}
+                            />
+                            {isManager && (
+                                <Button
+                                    type="dashed"
+                                    size="small"
+                                    icon={<EditOutlined />}
+                                    onClick={() => openDocUpload(record)}
+                                    style={{marginTop: '8px'}}
+                                >
+                                    {t('Edit', {defaultValue: 'Edit'})}
+                                </Button>
+                            )}
+                        </div>
                     );
                 }
                 if (isManager) {
@@ -329,15 +363,38 @@ export default function JirasTable({ onLog }) {
             ], onFilter: (v, r) => r.status === v },
         { title: t('table.bemerkungen'), dataIndex: 'comment',
             render: (text, record) => {
-                const hasFiles = (record.attachments?.length || 0) > 0;
+                const hasAttachments = record.attachments && record.attachments.length > 0;
+
                 const content = (
-                    <Space size="small">
-                        {hasFiles && <PaperClipOutlined />}
-                        <span>{text || ''}</span>
-                    </Space>
+                    <div>
+                        {text && <span>{text}</span>}
+                        {hasAttachments && (
+                            <List
+                                size="small"
+                                dataSource={record.attachments}
+                                renderItem={(file) => (
+                                    <List.Item style={{padding: '4px 0'}}>
+                                        <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                            <PaperClipOutlined /> {file.name}
+                                        </a>
+                                    </List.Item>
+                                )}
+                            />
+                        )}
+                    </div>
                 );
-                return <Button type="link" onClick={() => openRemarks(record)}>{content}</Button>
-            } },
+
+                if (isAuditor) {
+                    return (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
+                            <div style={{ flex: 1 }}>{content}</div>
+                            <Button icon={<EditOutlined />} size="small" onClick={() => openRemarks(record)} />
+                        </div>
+                    );
+                }
+                return content;
+            }
+        },
     ];
 
     return (
@@ -398,19 +455,20 @@ export default function JirasTable({ onLog }) {
 
             {/* Upload Document */}
             <Modal
-                title={t('Upload Document', {defaultValue: 'Upload Document'})}
+                title={t('Manage Documents', {defaultValue: 'Manage Documents'})}
                 open={docUploadOpen}
                 onCancel={() => setDocUploadOpen(false)}
                 onOk={handleDocUpload}
-                okText={t('Upload')}
+                okText={t('Save')}
                 cancelText={t('common.cancel')}
             >
                 <Upload
+                    multiple
                     fileList={docFiles}
                     beforeUpload={beforeDocUpload}
-                    onRemove={() => setDocFiles([])}
+                    onRemove={onRemoveDoc}
                 >
-                    <Button icon={<UploadOutlined />}>{t('Select File', {defaultValue: 'Select File'})}</Button>
+                    <Button icon={<UploadOutlined />}>{t('Add File', {defaultValue: 'Add File'})}</Button>
                 </Upload>
             </Modal>
 
