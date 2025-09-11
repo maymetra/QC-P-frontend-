@@ -355,3 +355,49 @@ export const knowledgeBase = [
         ]
     }
 ];
+
+// ... (существующий код файла mockData.js) ...
+
+/* =========================
+ * Глобальное логирование
+ * ========================= */
+
+const GLOBAL_LOG_KEY = 'globalActivityLog';
+const MAX_LOG_ENTRIES = 20; // Храним последние 20 записей
+
+/**
+ * Записывает событие в глобальный лог в localStorage.
+ * @param {object} event - Объект события {kind, by, ts, message, projectName}
+ */
+export function logGlobalEvent(event) {
+    try {
+        const existingLogRaw = localStorage.getItem(GLOBAL_LOG_KEY);
+        const existingLog = existingLogRaw ? JSON.parse(existingLogRaw) : [];
+
+        // Добавляем новое событие в начало
+        const newLog = [event, ...existingLog];
+
+        // Ограничиваем размер лога
+        if (newLog.length > MAX_LOG_ENTRIES) {
+            newLog.length = MAX_LOG_ENTRIES;
+        }
+
+        localStorage.setItem(GLOBAL_LOG_KEY, JSON.stringify(newLog));
+    } catch (error) {
+        console.error("Failed to write to global log", error);
+    }
+}
+
+/**
+ * Читает события из глобального лога.
+ * @returns {Array} - Массив событий
+ */
+export function getGlobalEvents() {
+    try {
+        const logRaw = localStorage.getItem(GLOBAL_LOG_KEY);
+        return logRaw ? JSON.parse(logRaw) : [];
+    } catch (error) {
+        console.error("Failed to read global log", error);
+        return [];
+    }
+}

@@ -5,7 +5,8 @@ import {
     AppstoreOutlined,
     UserOutlined,
     SettingOutlined,
-    InboxOutlined, // <-- Импортируем иконку
+    InboxOutlined,
+    DashboardOutlined, // <-- Импорт
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -17,12 +18,17 @@ export default function NavigationTab({ activeKey }) {
     const { user } = useAuth();
 
     const items = [
+        { // <-- Новый пункт меню
+            key: '/dashboard',
+            icon: <DashboardOutlined />,
+            label: t('menu.dashboard', {defaultValue: 'Dashboard'})
+        },
         {
             key: '/projects',
             icon: <AppstoreOutlined />,
             label: t('menu.projects')
         },
-        { // <-- Добавляем новый пункт меню
+        {
             key: '/projects/archive',
             icon: <InboxOutlined />,
             label: t('menu.archive', {defaultValue: 'Archive'})

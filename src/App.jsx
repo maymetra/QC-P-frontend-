@@ -6,7 +6,8 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import UsersPage from './pages/UsersPage';
 import SettingsPage from './pages/SettingsPage';
-import ArchivedProjectsPage from './pages/ArchivedProjectsPage'; // <-- Импортируем новую страницу
+import ArchivedProjectsPage from './pages/ArchivedProjectsPage';
+import DashboardPage from './pages/DashboardPage'; // <-- Импорт
 
 export default function App() {
     return (
@@ -16,15 +17,16 @@ export default function App() {
 
             {/* ▼▼▼ Защищенная зона ▼▼▼ */}
             <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<DashboardPage />} /> {/* <-- Роут для дашборда */}
                 <Route path="/projects" element={<ProjectsListPage />} />
-                <Route path="/projects/archive" element={<ArchivedProjectsPage />} /> {/* <-- Добавляем роут */}
+                <Route path="/projects/archive" element={<ArchivedProjectsPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
             </Route>
 
-            {/* Редирект с главной на проекты */}
-            <Route path="/" element={<Navigate to="/projects" replace />} />
+            {/* Редирект с главной на дашборд */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             {/* Страница не найдена */}
             <Route path="*" element={<h2>404 — Page not found</h2>} />

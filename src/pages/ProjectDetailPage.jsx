@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
 import JirasTable from '../components/JirasTable';
 import LanguageSwitch from '../components/LanguageSwitch';
-import { mockProjects, updateProject } from '../services/mockData'; // <-- Импортируем updateProject
+import { mockProjects, updateProject, logGlobalEvent } from '../services/mockData'; // <-- Импортируем updateProject
 import { useAuth } from '../context/AuthContext';
 import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +33,14 @@ export default function ProjectDetailPage() {
     // ------- История -------
     const [historyOpen, setHistoryOpen] = useState(false);
     const [events, setEvents] = useState([]);
-    const logEvent = (evt) => setEvents(prev => [{ ...evt }, ...prev]);
+
+    // Обновляем logEvent для записи и в локальную историю, и в глобальный лог
+    const logEvent = (evt) => {
+        // Добавляем имя проекта в объект события
+        const fullEvent = { ...evt, ts: new Date().toISOString(), projectName: project?.name };
+        setEvents(prev => [fullEvent, ...prev]);
+        logGlobalEvent(fullEvent);
+    };
 
     // ------- Смена статуса проекта -------
     const [statusModal, setStatusModal] = useState(false);
@@ -47,12 +54,11 @@ export default function ProjectDetailPage() {
     const saveStatus = () => {
         const prev = projStatus;
         setProjStatus(statusDraft);
-        updateProject(projectId, { status: statusDraft }); // <-- **ВОТ ИСПРАВЛЕНИЕ**
+        updateProject(projectId, { status: statusDraft });
         setStatusModal(false);
         logEvent({
             kind: 'project_status',
             by: user?.name,
-            ts: new Date().toISOString(),
             message: `Project status: ${t(`projects.status.${prev}`)} → ${t(`projects.status.${statusDraft}`)}`
         });
     };
