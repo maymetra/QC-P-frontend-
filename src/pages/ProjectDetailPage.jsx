@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Layout, Typography, Button, Space, Tag, Modal, List, Radio } from 'antd';
 import { useParams } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
@@ -6,8 +6,10 @@ import JirasTable from '../components/JirasTable';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { mockProjects } from '../services/mockData';
 import { useAuth } from '../context/AuthContext';
-import { LogoutOutlined, HistoryOutlined } from '@ant-design/icons';
+import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -18,8 +20,10 @@ export default function ProjectDetailPage() {
     const { t } = useTranslation();
 
     const project = mockProjects.find(p => p.id === projectId);
+    const tableRef = useRef(null);
+    const [isExporting, setIsExporting] = useState(false); // <-- Состояние для экспорта
 
-    // локальный статус проекта (для UI)
+    // ... (остальной код без изменений)
     const [projStatus, setProjStatus] = useState(project?.status || 'in_progress');
     const canChangeProjectStatus = user?.role === 'admin' || user?.role === 'auditor';
 
@@ -45,13 +49,52 @@ export default function ProjectDetailPage() {
         const prev = projStatus;
         setProjStatus(statusDraft);
         setStatusModal(false);
-        // лог с готовой строкой для истории
         logEvent({
             kind: 'project_status',
             by: user?.name,
             ts: new Date().toISOString(),
             message: `Project status: ${t(`projects.status.${prev}`)} → ${t(`projects.status.${statusDraft}`)}`
         });
+    };
+
+    // ------- Экспорт в PDF -------
+    const handleExportPDF = () => {
+        setIsExporting(true); // <-- Включаем режим экспорта
+
+        // Даем React время перерисовать компоненты в "режиме печати"
+        setTimeout(() => {
+            const input = tableRef.current;
+            if (!input) {
+                setIsExporting(false);
+                return;
+            };
+
+            html2canvas(input, { scale: 2 })
+                .then((canvas) => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({
+                        orientation: 'landscape',
+                        unit: 'mm',
+                        format: 'a4'
+                    });
+
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const canvasWidth = canvas.width;
+                    const canvasHeight = canvas.height;
+                    const ratio = canvasWidth / canvasHeight;
+                    const width = pdfWidth - 20; // Оставляем поля
+                    const height = width / ratio;
+
+                    const finalHeight = height > pdfHeight - 20 ? pdfHeight - 20 : height;
+
+                    pdf.addImage(imgData, 'PNG', 10, 10, width, finalHeight);
+                    pdf.save(`qs-plan-${project?.name || projectId}.pdf`);
+                })
+                .finally(() => {
+                    setIsExporting(false); // <-- Выключаем режим экспорта
+                });
+        }, 100);
     };
 
     return (
@@ -82,6 +125,9 @@ export default function ProjectDetailPage() {
 
                         {project && (
                             <Space>
+                                <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} loading={isExporting}>
+                                    {t('Export to PDF', { defaultValue: 'Export to PDF' })}
+                                </Button>
                                 <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
                                     {t('History', { defaultValue: 'History' })}
                                 </Button>
@@ -110,10 +156,10 @@ export default function ProjectDetailPage() {
                         </Space>
                     )}
 
-                    {/* Передаём логгер в таблицу, чтобы туда прилетали Item-события */}
-                    <JirasTable onLog={logEvent} />
+                    {/* Передаём ref и флаг экспорта в таблицу */}
+                    <JirasTable ref={tableRef} onLog={logEvent} isExporting={isExporting} />
 
-                    {/* Модалка смены статуса проекта */}
+                    {/* ... (остальной код модальных окон) ... */}
                     <Modal
                         title={t('Change project status', { defaultValue: 'Change project status' })}
                         open={statusModal}
@@ -134,7 +180,6 @@ export default function ProjectDetailPage() {
                         </Radio.Group>
                     </Modal>
 
-                    {/* История */}
                     <Modal
                         title={t('History', { defaultValue: 'History' })}
                         open={historyOpen}

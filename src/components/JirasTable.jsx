@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, forwardRef } from 'react';
 import {
     Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm, List, Radio, Select
 } from 'antd';
@@ -6,11 +6,11 @@ import { useTranslation } from 'react-i18next';
 import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { knowledgeBase } from '../services/mockData'; // <-- Импортируем базу знаний
+import { knowledgeBase } from '../services/mockData';
 
 const { Option } = Select;
 
-export default function JirasTable({ onLog }) {
+const JirasTable = forwardRef(({ onLog, isExporting }, ref) => { // <-- Принимаем isExporting
     const { t } = useTranslation();
     const { projectId } = useParams();
     const { user } = useAuth();
@@ -63,6 +63,7 @@ export default function JirasTable({ onLog }) {
         try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch { /* empty */ }
     }, [data, storageKey]);
 
+    // ... (весь код до определения колонок остается без изменений)
     // -------- Add/Edit/Delete Item Logic --------
     const [addOpen, setAddOpen] = useState(false);
     const [addForm] = Form.useForm();
@@ -117,7 +118,6 @@ export default function JirasTable({ onLog }) {
         message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
     };
 
-    // ... (остальной код компонента без изменений) ...
     // -------- Edit measure, Document Upload, Status change, Remarks, etc. --------
     // -------- Edit measure --------
     const [editOpen, setEditOpen] = useState(false);
@@ -276,32 +276,29 @@ export default function JirasTable({ onLog }) {
         return category ? category.items : [];
     }, [selectedCategory]);
 
-
     // -------- Columns --------
-    const columns = [
+    let columns = [
         { title: t('table.pruefungsgegenstand'), dataIndex: 'item',
             sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
         { title: t('table.massnahme'), dataIndex: 'action',
-            render: (text, record) => (
-                <Space>
-                    <span>{text}</span>
-                    {isManager && <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)} />}
-                </Space>
-            )
+            render: (text, record) => {
+                if (isExporting) return text; // <-- Режим экспорта
+                return (
+                    <Space>
+                        <span>{text}</span>
+                        {isManager && <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)} />}
+                    </Space>
+                );
+            }
         },
         { title: t('table.autor'), dataIndex: 'author',
-            sorter: (a, b) => (a.author || '').localeCompare(b.author || ''),
-            filters: [
-                { text: 'Projektmanager 1', value: 'Projektmanager 1' },
-                { text: 'Projektmanager 2', value: 'Projektmanager 2' },
-                { text: 'Projektmanager 3', value: 'Projektmanager 3' },
-            ], onFilter: (v, r) => r.author === v },
+            sorter: (a, b) => (a.author || '').localeCompare(b.author || '')},
         { title: t('table.pruefer'), dataIndex: 'reviewer',
-            filters: [
+            filters: !isExporting ? [ // <-- Скрываем фильтры при экспорте
                 { text: t('filter.lamine'), value: 'Lamine' },
                 { text: t('filter.judith'), value: 'Judith' },
                 { text: t('filter.artem'),  value: 'Artem' },
-            ], onFilter: (v, r) => r.reviewer === v },
+            ] : null, onFilter: (v, r) => r.reviewer === v },
         { title: t('table.planTermin'), dataIndex: 'plannedDate',
             sorter: (a, b) => new Date(a.plannedDate || 0) - new Date(b.plannedDate || 0) },
         { title: t('table.istTermin'), dataIndex: 'closedDate',
@@ -309,6 +306,7 @@ export default function JirasTable({ onLog }) {
         {
             title: t('table.dokument'), dataIndex: 'documents',
             render: (docs, record) => {
+                // ... (логика отображения документов остается прежней)
                 const hasDocs = docs && docs.length > 0;
                 if (hasDocs) {
                     return (
@@ -324,7 +322,7 @@ export default function JirasTable({ onLog }) {
                                     </List.Item>
                                 )}
                             />
-                            {isManager && (
+                            {isManager && !isExporting && (
                                 <Button
                                     type="dashed"
                                     size="small"
@@ -338,7 +336,7 @@ export default function JirasTable({ onLog }) {
                         </div>
                     );
                 }
-                if (isManager) {
+                if (isManager && !isExporting) {
                     return (
                         <Button
                             type="dashed"
@@ -355,8 +353,10 @@ export default function JirasTable({ onLog }) {
         },
         { title: t('table.status'), dataIndex: 'status',
             render: (status, record) => {
-                const color = status === 'approved' ? 'green' : status === 'pending' ? 'orange' : 'red';
                 const text = t(`itemStatus.${status}`, { defaultValue: status });
+                if (isExporting) return text; // <-- Режим экспорта: просто текст
+
+                const color = status === 'approved' ? 'green' : status === 'pending' ? 'orange' : 'red';
                 const tag = <Tag color={color}>{text}</Tag>;
 
                 if (isAuditor) {
@@ -387,13 +387,14 @@ export default function JirasTable({ onLog }) {
                 }
                 return tag;
             },
-            filters: [
+            filters: !isExporting ? [ // <-- Скрываем фильтры при экспорте
                 { text: t('itemStatus.approved'), value: 'approved' },
                 { text: t('itemStatus.rejected'), value: 'rejected' },
                 { text: t('itemStatus.pending'),  value: 'pending' },
-            ], onFilter: (v, r) => r.status === v },
+            ] : null, onFilter: (v, r) => r.status === v },
         { title: t('table.bemerkungen'), dataIndex: 'comment',
             render: (text, record) => {
+                // ... (логика отображения ремарков остается прежней)
                 const hasAttachments = record.attachments && record.attachments.length > 0;
 
                 const content = (
@@ -415,7 +416,7 @@ export default function JirasTable({ onLog }) {
                     </div>
                 );
 
-                if (isAuditor) {
+                if (isAuditor && !isExporting) {
                     return (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
                             <div style={{ flex: 1 }}>{content}</div>
@@ -430,7 +431,7 @@ export default function JirasTable({ onLog }) {
             title: t('Actions', {defaultValue: 'Actions'}),
             key: 'actions',
             render: (_, record) => {
-                if (isAuditor) {
+                if (isAuditor && !isExporting) { // <-- Скрываем при экспорте
                     return (
                         <Popconfirm
                             title={t('Delete this item?', {defaultValue: 'Delete this item?'})}
@@ -447,16 +448,21 @@ export default function JirasTable({ onLog }) {
         }
     ];
 
+    if (isExporting) {
+        columns = columns.filter(col => col.key !== 'actions'); // <-- Убираем колонку Actions при экспорте
+    }
+
     return (
-        <>
-            {isAuditor && (
+        <div ref={ref}>
+            {isAuditor && !isExporting && ( // <-- Скрываем кнопку при экспорте
                 <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} className="!mb-3">
                     {t('Add inspection item', { defaultValue: 'Add inspection item' })}
                 </Button>
             )}
 
-            <Table columns={columns} dataSource={data} rowKey="key" scroll={{ x: true }} />
+            <Table columns={columns} dataSource={data} rowKey="key" scroll={{ x: true }} pagination={false} />
 
+            {/* ... (модальные окна без изменений) ... */}
             {/* Add item Modal */}
             <Modal
                 title={t('Add inspection item', { defaultValue: 'Add inspection item' })}
@@ -584,6 +590,8 @@ export default function JirasTable({ onLog }) {
                     </Form.Item>
                 </Form>
             </Modal>
-        </>
+        </div>
     );
-}
+});
+
+export default JirasTable;
