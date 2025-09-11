@@ -1,12 +1,13 @@
 // src/pages/DashboardPage.jsx
 import React, { useEffect, useState } from 'react';
-import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag } from 'antd';
+import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag, Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ExclamationCircleOutlined, FieldTimeOutlined, LogoutOutlined } from '@ant-design/icons';
 import NavigationTab from '../components/NavigationTab';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { getGlobalEvents, mockProjects as allProjects } from '../services/mockData';
+import { useNavigate } from 'react-router-dom'; // <-- Импортируем useNavigate
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -14,42 +15,48 @@ const { Title, Text } = Typography;
 export default function DashboardPage() {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
+    const navigate = useNavigate(); // <-- Инициализируем навигацию
 
-    const [pendingItemsCount, setPendingItemsCount] = useState(0);
-    const [overdueItemsCount, setOverdueItemsCount] = useState(0); // <-- Новое состояние
+    // Сохраняем не только количество, но и сами объекты
+    const [pendingItems, setPendingItems] = useState([]);
+    const [overdueItems, setOverdueItems] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
 
-    useEffect(() => {
-        let pendingCount = 0;
-        let overdueCount = 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Устанавливаем время на начало дня для корректного сравнения
+    // Состояния для модальных окон
+    const [isPendingModalVisible, setIsPendingModalVisible] = useState(false);
+    const [isOverdueModalVisible, setIsOverdueModalVisible] = useState(false);
 
-        allProjects.forEach(p => {
+    useEffect(() => {
+        let allPendingItems = [];
+        let allOverdueItems = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        allProjects.forEach(project => {
             try {
-                const itemsRaw = localStorage.getItem(`jiraItems:${p.id}`);
+                const itemsRaw = localStorage.getItem(`jiraItems:${project.id}`);
                 if (itemsRaw) {
                     const items = JSON.parse(itemsRaw);
                     items.forEach(item => {
-                        // Считаем items, ожидающие одобрения
+                        const itemWithProjectInfo = { ...item, projectId: project.id, projectName: project.name };
+
                         if (item.status === 'pending') {
-                            pendingCount++;
+                            allPendingItems.push(itemWithProjectInfo);
                         }
 
-                        // Считаем просроченные items
                         const isOverdue = item.plannedDate && new Date(item.plannedDate) < today;
                         const isNegativeStatus = item.status === 'rejected' || item.status === 'open';
 
                         if (isOverdue && isNegativeStatus) {
-                            overdueCount++;
+                            allOverdueItems.push(itemWithProjectInfo);
                         }
                     });
                 }
             } catch (e) { console.error(e); }
         });
 
-        setPendingItemsCount(pendingCount);
-        setOverdueItemsCount(overdueCount);
+        setPendingItems(allPendingItems);
+        setOverdueItems(allOverdueItems);
         setRecentActivity(getGlobalEvents());
     }, [user]);
 
@@ -72,24 +79,23 @@ export default function DashboardPage() {
                 <Content className="p-6 bg-gray-50">
                     <Title level={2} className="!mb-6">{t('menu.dashboard', {defaultValue: 'Dashboard'})}</Title>
                     <Row gutter={[16, 16]}>
-                        {/* Карточки со статистикой */}
+                        {/* Интерактивные карточки */}
                         <Col xs={24} sm={12}>
-                            <Card>
-                                <Statistic title={t('itemStatus.pending')} value={pendingItemsCount} prefix={<FieldTimeOutlined />} />
+                            <Card hoverable onClick={() => setIsPendingModalVisible(true)}>
+                                <Statistic title={t('itemStatus.pending')} value={pendingItems.length} prefix={<FieldTimeOutlined />} />
                             </Card>
                         </Col>
                         <Col xs={24} sm={12}>
-                            <Card>
+                            <Card hoverable onClick={() => setIsOverdueModalVisible(true)}>
                                 <Statistic
                                     title={t('itemStatus.overdue')}
-                                    value={overdueItemsCount}
+                                    value={overdueItems.length}
                                     prefix={<ExclamationCircleOutlined />}
-                                    valueStyle={{ color: overdueItemsCount > 0 ? '#cf1322' : undefined }}
+                                    valueStyle={{ color: overdueItems.length > 0 ? '#cf1322' : undefined }}
                                 />
                             </Card>
                         </Col>
 
-                        {/* Список последних действий */}
                         <Col xs={24}>
                             <Card title={t('Recent Activity', {defaultValue: 'Recent Activity'})}>
                                 <List
@@ -113,6 +119,57 @@ export default function DashboardPage() {
                     </Row>
                 </Content>
             </Layout>
+
+            {/* Модальное окно для "Pending Items" */}
+            <Modal
+                title={t('itemStatus.pending')}
+                open={isPendingModalVisible}
+                onCancel={() => setIsPendingModalVisible(false)}
+                footer={null}
+            >
+                <List
+                    dataSource={pendingItems}
+                    renderItem={item => (
+                        <List.Item
+                            actions={[<Button onClick={() => navigate(`/projects/${item.projectId}`)}>{t('Go to project', {defaultValue: 'Go to project'})}</Button>]}
+                        >
+                            <List.Item.Meta
+                                title={item.item}
+                                description={<Tag>{item.projectName}</Tag>}
+                            />
+                        </List.Item>
+                    )}
+                    locale={{ emptyText: t('No pending items', {defaultValue: 'No pending items'})}}
+                />
+            </Modal>
+
+            {/* Модальное окно для "Overdue Items" */}
+            <Modal
+                title={t('itemStatus.overdue')}
+                open={isOverdueModalVisible}
+                onCancel={() => setIsOverdueModalVisible(false)}
+                footer={null}
+            >
+                <List
+                    dataSource={overdueItems}
+                    renderItem={item => (
+                        <List.Item
+                            actions={[<Button onClick={() => navigate(`/projects/${item.projectId}`)}>{t('Go to project', {defaultValue: 'Go to project'})}</Button>]}
+                        >
+                            <List.Item.Meta
+                                title={<span style={{color: '#cf1322'}}>{item.item}</span>}
+                                description={
+                                    <>
+                                        <Tag>{item.projectName}</Tag>
+                                        <Text type="danger">{t('Planned Date', {defaultValue: 'Planned Date'})}: {item.plannedDate}</Text>
+                                    </>
+                                }
+                            />
+                        </List.Item>
+                    )}
+                    locale={{ emptyText: t('No overdue items', {defaultValue: 'No overdue items'})}}
+                />
+            </Modal>
         </Layout>
     );
 }
