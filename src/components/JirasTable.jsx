@@ -3,7 +3,7 @@ import {
     Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm
 } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, SendOutlined } from '@ant-design/icons';
+import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -127,6 +127,40 @@ export default function JirasTable({ onLog }) {
         message.success(t('Saved', { defaultValue: 'Saved' }));
     };
 
+    // -------- Document Upload --------
+    const [docUploadOpen, setDocUploadOpen] = useState(false);
+    const [docFiles, setDocFiles] = useState([]);
+
+    const openDocUpload = (record) => {
+        setEditingKey(record.key);
+        setDocUploadOpen(true);
+    };
+
+    const handleDocUpload = () => {
+        if (docFiles.length === 0) {
+            message.error(t('Please select a file to upload.', {defaultValue: 'Please select a file to upload.'}));
+            return;
+        }
+        const file = docFiles[0];
+        setData(prev =>
+            prev.map(r =>
+                r.key === editingKey
+                    ? { ...r, document: { name: file.name, url: URL.createObjectURL(file) } }
+                    : r
+            )
+        );
+        setDocUploadOpen(false);
+        setDocFiles([]);
+        setEditingKey(null);
+        message.success(t('Document uploaded.', {defaultValue: 'Document uploaded.'}));
+    };
+
+    const beforeDocUpload = (file) => {
+        setDocFiles([file]);
+        return false;
+    };
+
+
     // -------- Status change --------
     const isoToday = () => {
         const d = new Date();
@@ -228,14 +262,32 @@ export default function JirasTable({ onLog }) {
             sorter: (a, b) => new Date(a.plannedDate || 0) - new Date(b.plannedDate || 0) },
         { title: t('table.istTermin'), dataIndex: 'closedDate',
             sorter: (a, b) => new Date(a.closedDate || 0) - new Date(b.closedDate || 0) },
-        { title: t('table.dokument'), dataIndex: 'document',
-            render: (doc) =>
-                doc && doc.url ? (
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                        <LinkOutlined style={{ marginRight: 8 }} />
-                        {doc.name}
-                    </a>
-                ) : null },
+        {
+            title: t('table.dokument'), dataIndex: 'document',
+            render: (doc, record) => {
+                if (doc && doc.url) {
+                    return (
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                            <LinkOutlined style={{ marginRight: 8 }} />
+                            {doc.name}
+                        </a>
+                    );
+                }
+                if (isManager) {
+                    return (
+                        <Button
+                            type="dashed"
+                            size="small"
+                            icon={<UploadOutlined />}
+                            onClick={() => openDocUpload(record)}
+                        >
+                            {t('Upload', {defaultValue: 'Upload'})}
+                        </Button>
+                    );
+                }
+                return null;
+            }
+        },
         { title: t('table.status'), dataIndex: 'status',
             render: (status, record) => {
                 const color = status === 'approved' ? 'green' : status === 'pending' ? 'orange' : 'red';
@@ -342,6 +394,24 @@ export default function JirasTable({ onLog }) {
                         <Input />
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            {/* Upload Document */}
+            <Modal
+                title={t('Upload Document', {defaultValue: 'Upload Document'})}
+                open={docUploadOpen}
+                onCancel={() => setDocUploadOpen(false)}
+                onOk={handleDocUpload}
+                okText={t('Upload')}
+                cancelText={t('common.cancel')}
+            >
+                <Upload
+                    fileList={docFiles}
+                    beforeUpload={beforeDocUpload}
+                    onRemove={() => setDocFiles([])}
+                >
+                    <Button icon={<UploadOutlined />}>{t('Select File', {defaultValue: 'Select File'})}</Button>
+                </Upload>
             </Modal>
 
 
