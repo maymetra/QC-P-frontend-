@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm, List
+    Table, Tag, Modal, Form, Input, DatePicker, Upload, Space, message, Button, Popconfirm, List, Radio, Select
 } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { knowledgeBase } from '../services/mockData'; // <-- Импортируем базу знаний
+
+const { Option } = Select;
 
 export default function JirasTable({ onLog }) {
     const { t } = useTranslation();
@@ -60,18 +63,32 @@ export default function JirasTable({ onLog }) {
         try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch { /* empty */ }
     }, [data, storageKey]);
 
-    // -------- Add item --------
+    // -------- Add/Edit/Delete Item Logic --------
     const [addOpen, setAddOpen] = useState(false);
     const [addForm] = Form.useForm();
+    const [addMode, setAddMode] = useState('new');
+    const [selectedCategory, setSelectedCategory] = useState(null);
 
-    const openAdd = () => { addForm.resetFields(); setAddOpen(true); };
+    const openAdd = () => {
+        addForm.resetFields();
+        setAddMode('new');
+        setSelectedCategory(null);
+        setAddOpen(true);
+    };
+
     const handleAdd = () => addForm.submit();
 
     const onAddFinish = (values) => {
+        const itemText = values.addMode === 'new' ? values.newItemText : values.selectedItem;
+        if (!itemText) {
+            message.error(t('Please select or enter an inspection item.', {defaultValue: 'Please select or enter an inspection item.'}));
+            return;
+        }
+
         const planned = values.plannedDate ? values.plannedDate.format('YYYY-MM-DD') : '';
         const next = {
             key: `i-${Date.now()}`,
-            item: (values.item || '').trim(),
+            item: itemText,
             action: '',
             author: '',
             reviewer: '',
@@ -84,7 +101,6 @@ export default function JirasTable({ onLog }) {
         };
         setData(prev => [next, ...prev]);
         setAddOpen(false);
-        addForm.resetFields();
 
         if (typeof onLog === 'function') {
             onLog({
@@ -96,6 +112,13 @@ export default function JirasTable({ onLog }) {
         }
     };
 
+    const handleDelete = (key) => {
+        setData(prev => prev.filter(item => item.key !== key));
+        message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
+    };
+
+    // ... (остальной код компонента без изменений) ...
+    // -------- Edit measure, Document Upload, Status change, Remarks, etc. --------
     // -------- Edit measure --------
     const [editOpen, setEditOpen] = useState(false);
     const [editForm] = Form.useForm();
@@ -206,6 +229,7 @@ export default function JirasTable({ onLog }) {
     const [files, setFiles] = useState([]);
 
     const openRemarks = (record) => {
+        if (!isAuditor) return; // Only auditors can open remarks modal
         setEditingKey(record.key);
         remarksForm.setFieldsValue({ comment: record.comment || '' });
         setFiles(record.attachments || []);
@@ -245,6 +269,13 @@ export default function JirasTable({ onLog }) {
             });
         }
     };
+
+    const availableItems = useMemo(() => {
+        if (!selectedCategory) return [];
+        const category = knowledgeBase.find(c => c.category === selectedCategory);
+        return category ? category.items : [];
+    }, [selectedCategory]);
+
 
     // -------- Columns --------
     const columns = [
@@ -395,6 +426,25 @@ export default function JirasTable({ onLog }) {
                 return content;
             }
         },
+        {
+            title: t('Actions', {defaultValue: 'Actions'}),
+            key: 'actions',
+            render: (_, record) => {
+                if (isAuditor) {
+                    return (
+                        <Popconfirm
+                            title={t('Delete this item?', {defaultValue: 'Delete this item?'})}
+                            onConfirm={() => handleDelete(record.key)}
+                            okText={t('Yes')}
+                            cancelText={t('No')}
+                        >
+                            <Button danger icon={<DeleteOutlined />} size="small" />
+                        </Popconfirm>
+                    );
+                }
+                return null;
+            }
+        }
     ];
 
     return (
@@ -407,23 +457,64 @@ export default function JirasTable({ onLog }) {
 
             <Table columns={columns} dataSource={data} rowKey="key" scroll={{ x: true }} />
 
-            {/* Add item */}
+            {/* Add item Modal */}
             <Modal
-                title={t('Create inspection item', { defaultValue: 'Create inspection item' })}
+                title={t('Add inspection item', { defaultValue: 'Add inspection item' })}
                 open={addOpen}
                 onCancel={() => setAddOpen(false)}
                 onOk={handleAdd}
                 okText={t('common.createOk', { defaultValue: 'Create' })}
                 cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
             >
-                <Form layout="vertical" form={addForm} onFinish={onAddFinish}>
-                    <Form.Item
-                        name="item"
-                        label={t('table.pruefungsgegenstand')}
-                        rules={[{ required: true, message: t('Please enter inspection item', { defaultValue: 'Please enter inspection item' }) }]}
-                    >
-                        <Input />
+                <Form layout="vertical" form={addForm} onFinish={onAddFinish} initialValues={{ addMode: 'new' }}>
+                    <Form.Item name="addMode" label={t('Source', {defaultValue: 'Source'})}>
+                        <Radio.Group onChange={(e) => setAddMode(e.target.value)}>
+                            <Radio.Button value="new">{t('Create New', {defaultValue: 'Create New'})}</Radio.Button>
+                            <Radio.Button value="select">{t('Select from KB', {defaultValue: 'Select from KB'})}</Radio.Button>
+                        </Radio.Group>
                     </Form.Item>
+
+                    {addMode === 'new' ? (
+                        <Form.Item
+                            name="newItemText"
+                            label={t('table.pruefungsgegenstand')}
+                            rules={[{ required: true, message: t('Please enter item text', {defaultValue: 'Please enter item text'}) }]}
+                        >
+                            <Input.TextArea rows={3} />
+                        </Form.Item>
+                    ) : (
+                        <>
+                            <Form.Item
+                                name="category"
+                                label={t('Category', {defaultValue: 'Category'})}
+                                rules={[{ required: true, message: t('Please select a category', {defaultValue: 'Please select a category'})}]}
+                            >
+                                <Select
+                                    showSearch
+                                    placeholder={t('Select a category', {defaultValue: 'Select a category'})}
+                                    onChange={(value) => {
+                                        setSelectedCategory(value);
+                                        addForm.resetFields(['selectedItem']);
+                                    }}
+                                >
+                                    {knowledgeBase.map(c => <Option key={c.category} value={c.category}>{c.category}</Option>)}
+                                </Select>
+                            </Form.Item>
+                            <Form.Item
+                                name="selectedItem"
+                                label={t('table.pruefungsgegenstand')}
+                                rules={[{ required: true, message: t('Please select an item', {defaultValue: 'Please select an item'})}]}
+                            >
+                                <Select
+                                    showSearch
+                                    placeholder={t('Select an item', {defaultValue: 'Select an item'})}
+                                    disabled={!selectedCategory}
+                                >
+                                    {availableItems.map(item => <Option key={item} value={item}>{item}</Option>)}
+                                </Select>
+                            </Form.Item>
+                        </>
+                    )}
                     <Form.Item
                         name="plannedDate"
                         label={t('table.planTermin')}
@@ -434,7 +525,7 @@ export default function JirasTable({ onLog }) {
                 </Form>
             </Modal>
 
-            {/* Edit measure */}
+            {/* Edit measure Modal */}
             <Modal
                 title={t('Edit Measure', { defaultValue: 'Edit Measure' })}
                 open={editOpen}
@@ -453,7 +544,7 @@ export default function JirasTable({ onLog }) {
                 </Form>
             </Modal>
 
-            {/* Upload Document */}
+            {/* Upload Document Modal */}
             <Modal
                 title={t('Manage Documents', {defaultValue: 'Manage Documents'})}
                 open={docUploadOpen}
@@ -473,7 +564,7 @@ export default function JirasTable({ onLog }) {
             </Modal>
 
 
-            {/* Edit remarks */}
+            {/* Edit remarks Modal */}
             <Modal
                 title={t('Edit remarks', { defaultValue: 'Edit remarks' })}
                 open={remarksOpen}
