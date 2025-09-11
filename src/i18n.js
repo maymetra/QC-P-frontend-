@@ -34,6 +34,7 @@ i18n
                         rejected: 'Rejected',
                         pending: 'Pending for approval',
                         open: 'Open',
+                        overdue: 'Overdue Items',
                     },
                     /* ---------- FILTER LABELS ---------- */
                     filter: {
@@ -154,6 +155,7 @@ i18n
                         rejected: 'Abgelehnt',
                         pending: 'Wartet auf Genehmigung',
                         open: 'Offen',
+                        overdue: 'Überfällige Posten',
                     },
                     /* ---------- FILTER LABELS ---------- */
                     filter: {
