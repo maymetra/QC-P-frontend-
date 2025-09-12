@@ -121,9 +121,7 @@ export default function SettingsPage() {
                                 render={item => item.title}
                                 listStyle={{ width: 600, height: 400 }}
                                 showSearch
-                                // <-- **ИСПРАВЛЕНИЕ** -->
-                                // Указываем, что всплывающие окна должны рендериться внутри нашего div с ref
-                                //getPopupContainer={() => modalContentRef.current}
+                                getPopupContainer={() => modalContentRef.current}
                             />
                         </Form.Item>
                     </Form>
