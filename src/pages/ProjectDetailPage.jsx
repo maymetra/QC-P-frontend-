@@ -10,6 +10,7 @@ import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/ic
 import { useTranslation } from 'react-i18next';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { exportToPDF } from '../services/pdfGenerator';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -20,7 +21,7 @@ export default function ProjectDetailPage() {
     const { t } = useTranslation();
 
     const project = mockProjects.find(p => p.id === projectId);
-    const tableRef = useRef(null);
+    //const tableRef = useRef(null);
     const [isExporting, setIsExporting] = useState(false);
 
     const [projStatus, setProjStatus] = useState(project?.status || 'in_progress');
@@ -64,42 +65,23 @@ export default function ProjectDetailPage() {
     };
 
     // ------- Экспорт в PDF -------
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => { // <-- Добавили async
         setIsExporting(true);
 
-        setTimeout(() => {
-            const input = tableRef.current;
-            if (!input) {
-                setIsExporting(false);
-                return;
-            };
+        try {
+            const storageKey = `jiraItems:${projectId}`;
+            const rawData = localStorage.getItem(storageKey);
+            const tableData = rawData ? JSON.parse(rawData) : [];
 
-            html2canvas(input, { scale: 2 })
-                .then((canvas) => {
-                    const imgData = canvas.toDataURL('image/png');
-                    const pdf = new jsPDF({
-                        orientation: 'landscape',
-                        unit: 'mm',
-                        format: 'a4'
-                    });
+            // Вызываем наш асинхронный сервис с await
+            await exportToPDF(project, tableData, user, t);
 
-                    const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const pdfHeight = pdf.internal.pageSize.getHeight();
-                    const canvasWidth = canvas.width;
-                    const canvasHeight = canvas.height;
-                    const ratio = canvasWidth / canvasHeight;
-                    const width = pdfWidth - 20;
-                    const height = width / ratio;
-
-                    const finalHeight = height > pdfHeight - 20 ? pdfHeight - 20 : height;
-
-                    pdf.addImage(imgData, 'PNG', 10, 10, width, finalHeight);
-                    pdf.save(`qs-plan-${project?.name || projectId}.pdf`);
-                })
-                .finally(() => {
-                    setIsExporting(false);
-                });
-        }, 100);
+        } catch (error) {
+            console.error("Failed to generate PDF", error);
+            // Здесь можно добавить уведомление об ошибке для пользователя
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     return (
@@ -161,7 +143,7 @@ export default function ProjectDetailPage() {
                         </Space>
                     )}
 
-                    <JirasTable ref={tableRef} onLog={logEvent} isExporting={isExporting} />
+                    <JirasTable onLog={logEvent} isExporting={isExporting} />
 
                     <Modal
                         title={t('Change project status', { defaultValue: 'Change project status' })}
