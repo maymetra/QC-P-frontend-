@@ -1,6 +1,6 @@
 // src/services/pdfGenerator.js
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // <-- 1. ИЗМЕНЕНИЕ: Импортируем функцию напрямую
+import autoTable from 'jspdf-autotable';
 import logo from '../assets/psi-logo.png';
 
 export const exportToPDF = async (project, tableData, user, t) => {
@@ -13,7 +13,15 @@ export const exportToPDF = async (project, tableData, user, t) => {
         await new Promise(resolve => {
             img.onload = resolve;
         });
-        doc.addImage(img, 'PNG', 14, 12, 50, 16);
+
+        const imgWidth = img.width;
+        const imgHeight = img.height;
+        const desiredWidth = 50;
+        const scaleFactor = desiredWidth / imgWidth;
+        const desiredHeight = imgHeight * scaleFactor;
+
+        doc.addImage(img, 'PNG', 14, 12, desiredWidth, desiredHeight);
+
     } catch (e) {
         console.error("Could not add logo to PDF", e);
     }
@@ -47,8 +55,8 @@ export const exportToPDF = async (project, tableData, user, t) => {
     ];
 
     const body = tableData.map(row => [
-        { content: row.item, styles: { cellWidth: 45 } },
-        { content: row.action, styles: { cellWidth: 45 } },
+        row.item,
+        row.action,
         row.author,
         row.reviewer,
         row.plannedDate,
@@ -56,28 +64,40 @@ export const exportToPDF = async (project, tableData, user, t) => {
         t(`itemStatus.${row.status}`, { defaultValue: row.status }),
     ]);
 
-    // <-- 2. ИЗМЕНЕНИЕ: Вызываем autoTable как функцию, передавая ей наш 'doc'
+    // <-- ИЗМЕНЕНИЯ ЗДЕСЬ
     autoTable(doc, {
         startY: 60,
         head: head,
         body: body,
         theme: 'striped',
-        headStyles: { fillColor: [34, 51, 102] },
-        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: {
+            fillColor: [34, 51, 102],
+            textColor: [255, 255, 255]
+        },
+        styles: {
+            fontSize: 7, // Уменьшаем шрифт
+            cellPadding: 2,
+            valign: 'middle'
+        },
+        // Пересчитанная ширина колонок (сумма = 182мм, что вписывается в страницу)
         columnStyles: {
-            0: { cellWidth: 45 },
-            1: { cellWidth: 45 },
+            0: { cellWidth: 35 }, // Prüfungsgegenstand
+            1: { cellWidth: 35 }, // Maßnahme
+            2: { cellWidth: 22 }, // Autor
+            3: { cellWidth: 22 }, // Prüfer
+            4: { cellWidth: 22 }, // Plan-Termin
+            5: { cellWidth: 22 }, // Ist-Termin
+            6: { cellWidth: 24 }, // Status
         }
     });
 
     // --- Подвал для подписи ---
-    // @ts-ignore - убираем ошибку TypeScript, т.к. lastAutoTable добавляется плагином динамически
+    // @ts-ignore
     const finalY = doc.lastAutoTable.finalY || 100;
     doc.setLineWidth(0.5);
     doc.line(140, finalY + 20, 196, finalY + 20);
     doc.setFontSize(10);
     doc.text('Signature', 168, finalY + 25, { align: 'center' });
 
-    // --- Сохранение файла ---
     doc.save(`qs-plan-${project?.name || 'report'}.pdf`);
 };
