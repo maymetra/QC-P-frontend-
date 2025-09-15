@@ -1,12 +1,12 @@
 // src/services/pdfGenerator.js
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import logo from '../assets/psi-logo.png';
+import logo from '../assets/psi-logo-qcp.png';
 
 export const exportToPDF = async (project, tableData, user, t) => {
     const doc = new jsPDF();
 
-    // --- Шапка документа (полностью исправленная верстка) ---
+    // --- Шапка документа ---
     try {
         const img = new Image();
         img.src = logo;
@@ -18,19 +18,19 @@ export const exportToPDF = async (project, tableData, user, t) => {
         const scaleFactor = desiredWidth / imgWidth;
         const desiredHeight = imgHeight * scaleFactor;
 
-        doc.addImage(img, 'PNG', 0, 5, desiredWidth, desiredHeight);
+        doc.addImage(img, 'PNG', 10, 12, desiredWidth, desiredHeight);
 
     } catch (e) { console.error("Could not add logo to PDF", e); }
 
     // Заголовок документа
     doc.setFontSize(18);
     doc.setTextColor(0, 0, 0);
-    doc.text('QS-Bericht', 105, 22, { align: 'center' });
+    doc.text('QC-Bericht', 105, 22, { align: 'center' });
 
-    // Линия-разделитель (ниже логотипа и заголовка)
+    // Линия-разделитель
     doc.line(10, 32, 200, 32);
 
-    // --- Информация о проекте (ниже линии-разделителя) ---
+    // --- Информация о проекте ---
     doc.setFontSize(10);
 
     // Левая колонка
@@ -51,7 +51,7 @@ export const exportToPDF = async (project, tableData, user, t) => {
 
     // --- Таблица с данными ---
     autoTable(doc, {
-        startY: 55, // Таблица начинается ниже всей шапки
+        startY: 55,
         head: [
             [
                 t('table.pruefungsgegenstand'), t('table.massnahme'), t('table.autor'),
@@ -72,15 +72,22 @@ export const exportToPDF = async (project, tableData, user, t) => {
         }
     });
 
-    // --- Подвал для подписи ---
+    // --- Подвал для подписи (с двумя полями) ---
     // @ts-ignore
     const finalY = doc.lastAutoTable.finalY || 100;
+    const signatureY = finalY + 20; // Общая высота для обеих подписей
 
-    // <-- ИЗМЕНЕНИЕ: Толщина линии уменьшена
     doc.setLineWidth(0.2);
-    doc.line(140, finalY + 20, 196, finalY + 20);
     doc.setFontSize(10);
-    doc.text('Unterschrift', 168, finalY + 25, { align: 'center' });
+
+    // Поле для подписи QC (слева)
+    doc.line(14, signatureY, 84, signatureY); // Левая линия
+    doc.text('Unterschrift QC', 49, signatureY + 5, { align: 'center' });
+
+    // Поле для подписи PM (справа)
+    doc.line(126, signatureY, 196, signatureY); // Правая линия
+    doc.text('Unterschrift PM', 161, signatureY + 5, { align: 'center' });
+
 
     doc.save(`qs-plan-${project?.name || 'report'}.pdf`);
 };
