@@ -78,32 +78,6 @@ export const mockProjects = [
 ];
 
 /* =========================
- * Аутентификация (мок)
- * ========================= */
-/**
- * Имитация запроса на аутентификацию.
- * Возвращает объект пользователя без пароля или кидает ошибку.
- * @param {string} username
- * @param {string} password
- * @returns {Promise<{username:string, role:string, name:string}>}
- */
-export function loginRequest(username, password) {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const user = Object.values(mockUsers).find(
-                (u) => u.username === username && u.password === password
-            );
-            if (user) {
-                const { password: _omit, ...userData } = user;
-                resolve(userData);
-            } else {
-                reject(new Error('Invalid credentials'));
-            }
-        }, 300);
-    });
-}
-
-/* =========================
  * Утилиты по проектам
  * ========================= */
 

@@ -1,43 +1,64 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginRequest } from '../services/mockData';
+import apiClient from '../services/api'; // <-- 1. Импортируем наш API-клиент
+import { jwtDecode } from 'jwt-decode'; // <-- 2. Импортируем декодер токенов
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
-        const savedUser = localStorage.getItem('user');
-        try {
-            return savedUser ? JSON.parse(savedUser) : null;
-        } catch (error) {
-            console.error("Failed to parse user from localStorage", error);
-            return null;
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                // Если токен есть, декодируем его, чтобы получить данные пользователя
+                const decodedUser = jwtDecode(token);
+                return decodedUser;
+            } catch (error) {
+                console.error("Failed to decode token", error);
+                return null;
+            }
         }
+        return null;
     });
 
     const navigate = useNavigate();
 
+    // --- 3. Полностью заменяем функцию login ---
     const login = async (username, password) => {
         try {
-            const userData = await loginRequest(username, password);
-            localStorage.setItem('user', JSON.stringify(userData));
+            // FastAPI ожидает данные в формате `application/x-www-form-urlencoded`
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const response = await apiClient.post('/auth/login', formData, {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            });
+
+            const { access_token } = response.data;
+
+            // Сохраняем токен в localStorage
+            localStorage.setItem('token', access_token);
+
+            // Декодируем токен, чтобы получить данные о пользователе
+            const userData = jwtDecode(access_token);
             setUser(userData);
 
-            // <-- ИЗМЕНЕНО: Логика перенаправления в зависимости от роли -->
+            // Логика перенаправления
             if (userData.role === 'admin' || userData.role === 'auditor') {
                 navigate('/dashboard');
             } else {
                 navigate('/projects');
             }
         } catch (error) {
-            console.error(error);
-            throw error;
+            console.error("Login failed", error);
+            throw error; // Пробрасываем ошибку, чтобы компонент LoginForm мог ее показать
         }
     };
 
     const logout = () => {
-        localStorage.removeItem('user');
+        localStorage.removeItem('token'); // Удаляем токен
         setUser(null);
         navigate('/login');
     };
