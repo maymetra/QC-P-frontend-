@@ -1,13 +1,13 @@
 // src/pages/ArchivedProjectsPage.jsx
-import React, {useEffect, useMemo, useState} from 'react';
-import { Layout, Typography, Button, Flex, List, Tag } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Layout, Typography, Button, Flex, List, Tag, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { LogoutOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
-import { filterProjectsForUser } from '../services/mockData';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../services/api'; // <-- 1. Импортируем наш API-клиент
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -18,11 +18,28 @@ export default function ArchivedProjectsPage() {
     const navigate = useNavigate();
 
     const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(false); // <-- 2. Добавляем состояние загрузки
+
+    // --- 3. Полностью заменяем useEffect ---
     useEffect(() => {
-        // Фильтруем проекты, оставляя только завершенные
-        const allProjects = filterProjectsForUser(user);
-        setProjects(allProjects.filter(p => p.status === 'finished'));
-    }, [user]);
+        const fetchArchivedProjects = async () => {
+            setLoading(true);
+            try {
+                // Запрашиваем ВСЕ проекты, доступные пользователю
+                const response = await apiClient.get('/projects/');
+                // Фильтруем на стороне фронтенда, оставляя только завершенные
+                const finishedProjects = response.data.filter(p => p.status === 'finished');
+                setProjects(finishedProjects);
+            } catch (error) {
+                console.error("Failed to fetch archived projects", error);
+                message.error(t('archive.fetchError', { defaultValue: "Failed to load archived projects." }));
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchArchivedProjects();
+    }, [user]); // Оставляем user в зависимостях, чтобы список обновлялся при смене пользователя
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -45,8 +62,8 @@ export default function ArchivedProjectsPage() {
                         <Title level={2} className="!m-0">{t('menu.archive', {defaultValue: 'Archive'})}</Title>
                     </Flex>
 
-                    {/* Список проектов */}
                     <List
+                        loading={loading} // <-- 4. Используем состояние загрузки
                         itemLayout="vertical"
                         dataSource={projects}
                         rowKey={(item) => item.id}
