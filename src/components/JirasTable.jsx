@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+// import { knowledgeBase } from '../services/mockData'; // <-- УДАЛЕНО
 import apiClient from '../services/api';
 import dayjs from 'dayjs';
 
@@ -21,11 +22,16 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const isAuditor = role === 'admin' || role === 'auditor';
     const isManager = role === 'manager';
 
-    // Вся логика состояний для модальных окон сохранена
+    // Состояния для модальных окон
     const [addOpen, setAddOpen] = useState(false);
     const [addForm] = Form.useForm();
     const [addMode, setAddMode] = useState('new');
     const [selectedCategory, setSelectedCategory] = useState(null);
+
+    // --- НОВЫЕ СОСТОЯНИЯ ДЛЯ БАЗЫ ЗНАНИЙ ---
+    const [knowledgeBase, setKnowledgeBase] = useState([]);
+    const [loadingKB, setLoadingKB] = useState(false);
+    // ----------------------------------------
 
     const [editOpen, setEditOpen] = useState(false);
     const [editForm] = Form.useForm();
@@ -38,9 +44,37 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const [remarksForm] = Form.useForm();
     const [files, setFiles] = useState([]);
 
+    // --- НОВЫЙ useEffect для загрузки Базы Знаний ---
+    useEffect(() => {
+        const fetchKnowledgeBase = async () => {
+            setLoadingKB(true);
+            try {
+                const response = await apiClient.get('/knowledge-base/');
+                // Группируем плоский список по категориям для UI
+                const grouped = response.data.reduce((acc, current) => {
+                    (acc[current.category] = acc[current.category] || []).push(current.item);
+                    return acc;
+                }, {});
 
-    // --- ОБРАБОТЧИКИ, АККУРАТНО ПЕРЕВЕДЕННЫЕ НА API ---
+                const structured = Object.keys(grouped).map(key => ({
+                    category: key,
+                    items: grouped[key],
+                }));
+                setKnowledgeBase(structured);
+            } catch (error) {
+                console.error("Failed to fetch knowledge base", error);
+                message.error("Could not load knowledge base.");
+            } finally {
+                setLoadingKB(false);
+            }
+        };
 
+        fetchKnowledgeBase();
+    }, []);
+    // ----------------------------------------------
+
+
+    // ... (все обработчики onAddFinish, handleDelete и т.д. остаются без изменений) ...
     const onAddFinish = async (values) => {
         const itemText = values.addMode === 'new' ? values.newItemText : values.selectedItem;
         if (!itemText) {
@@ -106,7 +140,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         const payload = {
             status: newStatus,
             reviewer: isAuditor ? currentUserName : undefined,
-            // Устанавливаем дату закрытия или сбрасываем ее в null
             closed_date: newStatus === 'approved' ? dayjs().format('YYYY-MM-DD') : (newStatus === 'open' || newStatus === 'rejected') ? null : undefined,
         };
         try {
@@ -121,7 +154,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const onRemarksFinish = async (values) => {
         const payload = {
             comment: values.comment || '',
-            attachments: files, // Вложения пока сохраняем как JSON, как и было
+            attachments: files,
         };
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
@@ -133,7 +166,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
-    // --- Функции для открытия модальных окон (сохранены) ---
     const openAdd = () => { addForm.resetFields(); setAddMode('new'); setSelectedCategory(null); setAddOpen(true); };
     const openEdit = (record) => { setEditingItem(record); editForm.setFieldsValue(record); setEditOpen(true); };
     const openDocUpload = (record) => { setEditingItem(record); setDocFiles(record.documents || []); setDocUploadOpen(true); };
@@ -145,7 +177,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         setRemarksOpen(true);
     };
 
-    // --- Вспомогательные функции для Upload (сохранены) ---
     const beforeDocUpload = (file) => {
         const newFile = { uid: file.uid, name: file.name, url: URL.createObjectURL(file) };
         setDocFiles(prev => [...prev, newFile]);
@@ -163,13 +194,14 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         setFiles(prev => prev.filter(f => f.uid !== file.uid));
     };
 
+    // Этот хук теперь работает с данными из state
     const availableItems = useMemo(() => {
         if (!selectedCategory) return [];
         const category = knowledgeBase.find(c => c.category === selectedCategory);
         return category ? category.items : [];
-    }, [selectedCategory]);
+    }, [selectedCategory, knowledgeBase]);
 
-    // --- КОЛОНКИ ТАБЛИЦЫ (полная версия с исправленными dataIndex) ---
+    // ... (Код колонок и рендер компонента остаются без изменений) ...
     let columns = [
         { title: t('table.pruefungsgegenstand'), dataIndex: 'item', sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
         {
@@ -261,7 +293,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 pagination={false}
             />
 
-            {/* ВСЕ МОДАЛЬНЫЕ ОКНА НА МЕСТЕ, В ПОЛНОЙ КОМПЛЕКТАЦИИ */}
             <Modal title={t('Add inspection item', { defaultValue: 'Add inspection item' })} open={addOpen} onCancel={() => setAddOpen(false)} onOk={addForm.submit} okText={t('common.createOk', { defaultValue: 'Create' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
                 <Form layout="vertical" form={addForm} onFinish={onAddFinish} initialValues={{ addMode: 'new' }}>
                     <Form.Item name="addMode" label={t('Source', {defaultValue: 'Source'})}><Radio.Group onChange={(e) => setAddMode(e.target.value)}><Radio.Button value="new">{t('Create New', {defaultValue: 'Create New'})}</Radio.Button><Radio.Button value="select">{t('Select from KB', {defaultValue: 'Select from KB'})}</Radio.Button></Radio.Group></Form.Item>
@@ -269,7 +300,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                         <Form.Item name="newItemText" label={t('table.pruefungsgegenstand')} rules={[{ required: true, message: t('Please enter item text', {defaultValue: 'Please enter item text'}) }]}><Input.TextArea rows={3} /></Form.Item>
                     ) : (
                         <>
-                            <Form.Item name="category" label={t('Category', {defaultValue: 'Category'})} rules={[{ required: true, message: t('Please select a category', {defaultValue: 'Please select a category'})}]}><Select showSearch placeholder={t('Select a category', {defaultValue: 'Select a category'})} onChange={(value) => { setSelectedCategory(value); addForm.resetFields(['selectedItem']); }}>{knowledgeBase.map(c => <Option key={c.category} value={c.category}>{c.category}</Option>)}</Select></Form.Item>
+                            <Form.Item name="category" label={t('Category', {defaultValue: 'Category'})} rules={[{ required: true, message: t('Please select a category', {defaultValue: 'Please select a category'})}]}><Select showSearch placeholder={t('Select a category', {defaultValue: 'Select a category'})} loading={loadingKB} onChange={(value) => { setSelectedCategory(value); addForm.resetFields(['selectedItem']); }}>{knowledgeBase.map(c => <Option key={c.category} value={c.category}>{c.category}</Option>)}</Select></Form.Item>
                             <Form.Item name="selectedItem" label={t('table.pruefungsgegenstand')} rules={[{ required: true, message: t('Please select an item', {defaultValue: 'Please select an item'})}]}><Select showSearch placeholder={t('Select an item', {defaultValue: 'Select an item'})} disabled={!selectedCategory}>{availableItems.map(item => <Option key={item} value={item}>{item}</Option>)}</Select></Form.Item>
                         </>
                     )}
