@@ -1,8 +1,8 @@
 // src/pages/ProjectsListPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message } from 'antd';
+import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message, Popconfirm } from 'antd';
+import { PlusOutlined, LogoutOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PlusOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
@@ -25,6 +25,16 @@ export default function ProjectsListPage() {
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const handleDelete = async (projectId) => {
+        try {
+            await apiClient.delete(`/projects/${projectId}`);
+            message.success(t('projects.deleteSuccess', { defaultValue: 'Project deleted successfully' }));
+            fetchProjects(); // Обновляем список проектов
+        } catch (error) {
+            console.error("Failed to delete project", error);
+            message.error(t('projects.deleteError', { defaultValue: 'Failed to delete project' }));
+        }
+    };
 
     // Получаем список менеджеров по-старому, пока у нас нет для этого эндпоинта
     const managers = useMemo(() =>
@@ -142,6 +152,27 @@ export default function ProjectsListPage() {
                                 actions={[
                                     <Tag key="kunde">{item.kunde || '—'}</Tag>,
                                     <Tag key="status" color={item.status === 'in_progress' ? 'geekblue' : 'gold'}>{t(`projects.status.${item.status}`, { defaultValue: item.status })}</Tag>,
+                                    user.role === 'admin' && ( // Показываем кнопку только админам
+                                        <Popconfirm
+                                            key="delete"
+                                            title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
+                                            description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
+                                            onConfirm={(e) => {
+                                                e.stopPropagation(); // Останавливаем клик, чтобы не перейти на страницу проекта
+                                                handleDelete(item.id);
+                                            }}
+                                            onCancel={(e) => e.stopPropagation()}
+                                            okText={t('common.yes', { defaultValue: 'Yes' })}
+                                            cancelText={t('common.no', { defaultValue: 'No' })}
+                                        >
+                                            <Button
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                size="small"
+                                                onClick={(e) => e.stopPropagation()} // Останавливаем клик и здесь
+                                            />
+                                        </Popconfirm>
+                                    )
                                 ]}
                             >
                                 <List.Item.Meta

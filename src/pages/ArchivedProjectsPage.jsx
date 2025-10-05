@@ -1,8 +1,8 @@
 // src/pages/ArchivedProjectsPage.jsx
 import React, { useEffect, useState } from 'react';
-import { Layout, Typography, Button, Flex, List, Tag, message } from 'antd';
+import { Layout, Typography, Button, Flex, List, Tag, message, Popconfirm } from 'antd';
+import { LogoutOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { LogoutOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
@@ -19,27 +19,37 @@ export default function ArchivedProjectsPage() {
 
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(false); // <-- 2. Добавляем состояние загрузки
+    const handleDelete = async (projectId) => {
+        try {
+            await apiClient.delete(`/projects/${projectId}`);
+            message.success(t('projects.deleteSuccess', { defaultValue: 'Project deleted successfully' }));
+            // Нам нужна функция fetch, чтобы ее здесь вызвать
+            // Давайте переименуем ее и вынесем наружу useEffect
+            fetchProjects();
+        } catch (error) {
+            console.error("Failed to delete project", error);
+            message.error(t('projects.deleteError', { defaultValue: 'Failed to delete project' }));
+        }
+    };
 
     // --- 3. Полностью заменяем useEffect ---
-    useEffect(() => {
-        const fetchArchivedProjects = async () => {
-            setLoading(true);
-            try {
-                // Запрашиваем ВСЕ проекты, доступные пользователю
-                const response = await apiClient.get('/projects/');
-                // Фильтруем на стороне фронтенда, оставляя только завершенные
-                const finishedProjects = response.data.filter(p => p.status === 'finished');
-                setProjects(finishedProjects);
-            } catch (error) {
-                console.error("Failed to fetch archived projects", error);
-                message.error(t('archive.fetchError', { defaultValue: "Failed to load archived projects." }));
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchProjects = async () => {
+        setLoading(true);
+        try {
+            const response = await apiClient.get('/projects/');
+            const finishedProjects = response.data.filter(p => p.status === 'finished');
+            setProjects(finishedProjects);
+        } catch (error) {
+            console.error("Failed to fetch archived projects", error);
+            message.error(t('archive.fetchError', { defaultValue: "Failed to load archived projects." }));
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        fetchArchivedProjects();
-    }, [user]); // Оставляем user в зависимостях, чтобы список обновлялся при смене пользователя
+    useEffect(() => {
+        fetchProjects();
+    }, [user]);
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -76,6 +86,27 @@ export default function ArchivedProjectsPage() {
                                     <Tag key="status" color="green">
                                         {t(`projects.status.${item.status}`, { defaultValue: item.status })}
                                     </Tag>,
+                                    user.role === 'admin' && ( // Показываем кнопку только админам
+                                        <Popconfirm
+                                            key="delete"
+                                            title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
+                                            description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
+                                            onConfirm={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(item.id);
+                                            }}
+                                            onCancel={(e) => e.stopPropagation()}
+                                            okText={t('common.yes', { defaultValue: 'Yes' })}
+                                            cancelText={t('common.no', { defaultValue: 'No' })}
+                                        >
+                                            <Button
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                size="small"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </Popconfirm>
+                                    )
                                 ]}
                             >
                                 <List.Item.Meta
