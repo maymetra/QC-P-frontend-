@@ -68,7 +68,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
 
     const handleDelete = async (itemId) => {
         try {
-            await apiClient.delete(`/items/${itemId}`);
+            await apiClient.delete(`/projects/${projectId}/items/${itemId}`);
             message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
             fetchItems();
         } catch (error) {
@@ -82,7 +82,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             author: (values.author || '').trim() || currentUserName,
         };
         try {
-            await apiClient.put(`/items/${editingItem.id}`, payload);
+            await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved', { defaultValue: 'Saved' }));
             fetchItems();
             setEditOpen(false);
@@ -94,7 +94,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const handleDocUpload = async () => {
         const payload = { documents: docFiles };
         try {
-            await apiClient.put(`/items/${editingItem.id}`, payload);
+            await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Documents updated.', {defaultValue: 'Documents updated.'}));
             fetchItems();
             setDocUploadOpen(false);
@@ -111,7 +111,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             closed_date: newStatus === 'approved' ? dayjs().format('YYYY-MM-DD') : (newStatus === 'open' || newStatus === 'rejected') ? null : undefined,
         };
         try {
-            await apiClient.put(`/items/${itemId}`, payload);
+            await apiClient.put(`/projects/${projectId}/items/${itemId}`, payload);
             fetchItems();
             onLog({ kind: 'item_status', by: currentUserName, message: `Status changed to ${newStatus}` });
         } catch (error) {
@@ -125,7 +125,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             attachments: files, // Вложения пока сохраняем как JSON, как и было
         };
         try {
-            await apiClient.put(`/items/${editingItem.id}`, payload);
+            await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved', { defaultValue: 'Saved' }));
             fetchItems();
             setRemarksOpen(false);

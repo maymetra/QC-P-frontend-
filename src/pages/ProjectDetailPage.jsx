@@ -1,7 +1,7 @@
 // src/pages/ProjectDetailPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message } from 'antd';
-import { useParams } from 'react-router-dom';
+import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, Spin } from 'antd';
+import { useParams, useNavigate } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
 import JirasTable from '../components/JirasTable';
 import LanguageSwitch from '../components/LanguageSwitch';
@@ -10,7 +10,7 @@ import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/ic
 import { useTranslation } from 'react-i18next';
 import { exportToPDF } from '../services/pdfGenerator';
 import apiClient from '../services/api';
-import { mockProjects, updateProject, logGlobalEvent } from '../services/mockData';
+import { logGlobalEvent } from '../services/mockData';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -19,17 +19,20 @@ export default function ProjectDetailPage() {
     const { projectId } = useParams();
     const { user, logout } = useAuth();
     const { t } = useTranslation();
-    const tableRef = useRef(null); // ref для PDF экспорта остается
+    const navigate = useNavigate();
+    const tableRef = useRef(null);
 
-    // Данные самого проекта пока берем из моков
-    const project = mockProjects.find(p => p.id === projectId);
+    // --- ИЗМЕНЕНИЯ ЗДЕСЬ ---
+    const [project, setProject] = useState(null);
+    const [loadingProject, setLoadingProject] = useState(true);
+    // -------------------------
 
     const [items, setItems] = useState([]);
     const [loadingItems, setLoadingItems] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
     // Вся логика для статуса проекта, истории и модальных окон остается без изменений
-    const [projStatus, setProjStatus] = useState(project?.status || 'in_progress');
+    const [projStatus, setProjStatus] = useState('in_progress');
     const canChangeProjectStatus = user?.role === 'admin' || user?.role === 'auditor';
     const statusColor = projStatus === 'finished' ? 'green' : projStatus === 'in_progress' ? 'geekblue' : 'gold';
     const [historyOpen, setHistoryOpen] = useState(false);
@@ -43,7 +46,28 @@ export default function ProjectDetailPage() {
         logGlobalEvent(fullEvent);
     }, [project?.name]);
 
-    // --- ИНТЕГРАЦИЯ: Новая логика загрузки Items с бэкенда ---
+    // --- ИЗМЕНЕНИЯ ЗДЕСЬ: Загружаем данные о проекте ---
+    useEffect(() => {
+        const fetchProject = async () => {
+            if (!projectId) return;
+            setLoadingProject(true);
+            try {
+                const response = await apiClient.get(`/projects/${projectId}`);
+                setProject(response.data);
+                setProjStatus(response.data.status); // Устанавливаем статус проекта
+            } catch (error) {
+                console.error("Failed to fetch project", error);
+                message.error("Project not found.");
+                navigate('/projects'); // Если проект не найден, возвращаем на список
+            } finally {
+                setLoadingProject(false);
+            }
+        };
+
+        fetchProject();
+    }, [projectId, navigate]);
+    // ----------------------------------------------------
+
     const fetchItems = useCallback(async () => {
         if (!projectId) return;
         setLoadingItems(true);
@@ -62,24 +86,46 @@ export default function ProjectDetailPage() {
         fetchItems();
     }, [fetchItems]);
 
-    // --- Все функции-обработчики остаются на месте ---
     const openStatusModal = () => { setStatusDraft(projStatus); setStatusModal(true); };
-    const saveStatus = () => {
-        const prev = projStatus;
-        setProjStatus(statusDraft);
-        updateProject(projectId, { status: statusDraft });
-        setStatusModal(false);
-        logEvent({
-            kind: 'project_status', by: user?.name,
-            message: `Project status: ${t(`projects.status.${prev}`)} → ${t(`projects.status.${statusDraft}`)}`
-        });
-    };
-    const handleExportPDF = async () => { /* ... эта функция не меняется ... */ };
 
+    const saveStatus = async () => {
+        try {
+            // Теперь обновляем статус и на бэкенде!
+            const response = await apiClient.put(`/projects/${project.id}`, { ...project, status: statusDraft });
+            const updatedProject = response.data;
+
+            const prev = projStatus;
+            setProject(updatedProject);
+            setProjStatus(updatedProject.status);
+            setStatusModal(false);
+
+            logEvent({
+                kind: 'project_status', by: user?.name,
+                message: `Project status: ${t(`projects.status.${prev}`)} → ${t(`projects.status.${updatedProject.status}`)}`
+            });
+            message.success('Project status updated!');
+        } catch (error) {
+            message.error('Failed to update project status.');
+        }
+    };
+
+    const handleExportPDF = async () => {
+        if (!project || !items) return;
+        setIsExporting(true);
+        await exportToPDF(project, items, user, t);
+        setIsExporting(false);
+    };
+
+    if (loadingProject) {
+        return (
+            <Layout style={{ minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin size="large" />
+            </Layout>
+        );
+    }
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
-            {/* Шапка и навигация остаются прежними */}
             <Header className="flex justify-between items-center bg-gray-900 px-6 shadow-sm">
                 <h1 className="futuristic text-2xl sm:text-3xl m-0 leading-none">QUALITY CONTROL</h1>
                 <Space>
@@ -91,7 +137,6 @@ export default function ProjectDetailPage() {
             <Layout>
                 <Sider width={220} className="bg-white shadow-sm"><NavigationTab activeKey="/projects" /></Sider>
                 <Content className="p-6 bg-gray-50">
-                    {/* Верхняя часть страницы с кнопками остается прежней */}
                     <Space align="center" className="!w-full !justify-between !mb-2">
                         <Title level={2} className="!mb-0">QS-Plan: {project ? project.name : t('projects.notFound')}</Title>
                         {project && (
@@ -114,17 +159,15 @@ export default function ProjectDetailPage() {
                         </Space>
                     )}
 
-                    {/* Передаем в JirasTable все необходимые пропсы */}
                     <JirasTable
                         ref={tableRef}
                         items={items}
                         loading={loadingItems}
-                        fetchItems={fetchItems} // Функция для обновления
+                        fetchItems={fetchItems}
                         onLog={logEvent}
                         isExporting={isExporting}
                     />
 
-                    {/* Все модальные окна остаются на месте */}
                     <Modal title={t('Change project status')} open={statusModal} onCancel={() => setStatusModal(false)} onOk={saveStatus} okText={t('Save')} cancelText={t('common.cancel')}>
                         <Radio.Group value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
                             <Space direction="vertical">
@@ -135,7 +178,18 @@ export default function ProjectDetailPage() {
                         </Radio.Group>
                     </Modal>
                     <Modal title={t('History')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null}>
-                        <List /* ... */ />
+                        <List
+                            dataSource={events}
+                            renderItem={(item) => (
+                                <List.Item>
+                                    <Text>
+                                        <Text type="secondary">{new Date(item.ts).toLocaleString()} - {item.by}: </Text>
+                                        {item.message}
+                                    </Text>
+                                </List.Item>
+                            )}
+                            locale={{ emptyText: 'No history yet' }}
+                        />
                     </Modal>
                 </Content>
             </Layout>
