@@ -99,11 +99,18 @@ export default function ProjectsListPage() {
     };
 
     const handleCreate = async (values) => {
+        // Форматируем дату, если она есть
+        const payload = {
+            ...values,
+            basePlannedDate: values.basePlannedDate ? values.basePlannedDate.format('YYYY-MM-DD') : null,
+        };
+
         try {
-            await apiClient.post('/projects/', values);
+            // Отправляем payload вместо values
+            await apiClient.post('/projects/', payload);
             message.success(t('projects.createSuccess', { defaultValue: 'Project created successfully!' }));
             setIsModalVisible(false);
-            fetchProjects(); // Перезагружаем список проектов
+            fetchProjects();
         } catch (error) {
             console.error("Failed to create project", error);
             const errorMsg = error.response?.data?.detail || 'An unexpected error occurred.';
