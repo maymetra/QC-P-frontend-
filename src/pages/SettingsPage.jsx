@@ -7,7 +7,6 @@ import NavigationTab from '../components/NavigationTab';
 import { LogoutOutlined, PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../services/api';
-import { getKnowledgeBaseItems } from '../services/mockData';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -39,8 +38,25 @@ export default function SettingsPage() {
     };
 
     useEffect(() => {
-        fetchTemplates();
-        setKnowledgeBaseItems(getKnowledgeBaseItems());
+        const fetchInitialData = async () => {
+            fetchTemplates();
+            // Загружаем knowledge base с API
+            try {
+                const kbResponse = await apiClient.get('/knowledge-base/');
+                // Преобразуем данные в формат, который ожидает Transfer
+                const formattedItems = kbResponse.data.map(item => ({
+                    key: item.item,
+                    title: item.item,
+                    category: item.category, // Можно использовать для фильтрации в будущем
+                }));
+                setKnowledgeBaseItems(formattedItems);
+            } catch (error) {
+                console.error("Failed to fetch knowledge base", error);
+                message.error("Failed to load knowledge base items.");
+            }
+        };
+
+        fetchInitialData();
     }, []);
 
     const openCreateModal = () => {

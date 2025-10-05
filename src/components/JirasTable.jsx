@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { knowledgeBase } from '../services/mockData';
 import apiClient from '../services/api';
 import dayjs from 'dayjs';
 
