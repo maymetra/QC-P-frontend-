@@ -50,6 +50,14 @@ export default function SettingsPage() {
         setIsModalVisible(true);
     };
 
+    // Возвращаем функцию редактирования
+    const openEditModal = (template) => {
+        setEditingTemplate(template);
+        form.setFieldsValue({ name: template.name });
+        setTargetKeys(template.items);
+        setIsModalVisible(true);
+    };
+
     const handleCancel = () => {
         setIsModalVisible(false);
         setEditingTemplate(null);
@@ -60,14 +68,22 @@ export default function SettingsPage() {
             name: values.name,
             items: targetKeys,
         };
+
         try {
-            await apiClient.post('/templates/', payload);
-            message.success(`Template "${values.name}" created successfully!`);
+            if (editingTemplate) {
+                // Режим обновления
+                await apiClient.put(`/templates/${editingTemplate.id}`, payload);
+                message.success(`Template "${values.name}" updated successfully!`);
+            } else {
+                // Режим создания
+                await apiClient.post('/templates/', payload);
+                message.success(`Template "${values.name}" created successfully!`);
+            }
             fetchTemplates();
             handleCancel();
         } catch (error) {
-            console.error("Failed to create template", error);
-            message.error(error.response?.data?.detail || 'Failed to create template.');
+            console.error("Failed to save template", error);
+            message.error(error.response?.data?.detail || 'Failed to save template.');
         }
     };
 
@@ -102,6 +118,8 @@ export default function SettingsPage() {
                 renderItem={item => (
                     <List.Item
                         actions={[
+                            // Возвращаем кнопку Edit
+                            <Button icon={<EditOutlined />} onClick={() => openEditModal(item)} />,
                             <Popconfirm
                                 title={t('settingsPage.templates.deleteConfirm', {defaultValue: 'Delete this template?'})}
                                 onConfirm={() => handleDelete(item)}
@@ -132,6 +150,7 @@ export default function SettingsPage() {
                             label={t('settingsPage.templates.name', {defaultValue: 'Template Name'})}
                             rules={[{ required: true }]}
                         >
+                            {/* Запрещаем менять имя при редактировании, чтобы избежать путаницы */}
                             <Input disabled={!!editingTemplate}/>
                         </Form.Item>
                         <Form.Item label={t('settingsPage.templates.items', {defaultValue: 'Inspection Items'})}>
@@ -149,7 +168,7 @@ export default function SettingsPage() {
                 </div>
             </Modal>
         </>
-    ); // <-- ВОТ ОНА, НЕДОСТАЮЩАЯ СКОБКА С ТОЧКОЙ-ЗАПЯТОЙ
+    );
 
     const renderPersonalSettings = () => (
         <>
