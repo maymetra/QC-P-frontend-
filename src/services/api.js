@@ -1,13 +1,26 @@
 // src/services/api.js
 import axios from 'axios';
 
-// Создаем экземпляр axios с базовой конфигурацией
 const apiClient = axios.create({
-    baseURL: 'http://localhost:8000/api/v1', // Адрес нашего бэкенда
+    baseURL: 'http://localhost:8000/api/v1',
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Экспортируем наш настроенный клиент
+// Это "перехватчик" (interceptor). Он будет выполняться перед КАЖДЫМ запросом.
+apiClient.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            // Если токен есть, добавляем его в заголовок Authorization
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 export default apiClient;

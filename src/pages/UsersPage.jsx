@@ -1,13 +1,13 @@
 // src/pages/UsersPage.jsx
-import React, { useState } from 'react';
-import { Layout, Typography, Button, Flex, Table, Tag, Modal, Form } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Layout, Typography, Button, Flex, Table, Tag, Modal, Form, message } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import AddUserForm from '../components/AddUserForm';
 import { LogoutOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { mockUsers } from '../services/mockData';
+import apiClient from '../services/api'; // Импортируем наш API клиент
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -17,50 +17,67 @@ export default function UsersPage() {
     const { t } = useTranslation();
     const [form] = Form.useForm();
 
-    // список пользователей
-    const [userList, setUserList] = useState(Object.values(mockUsers));
-    // состояние модалки
+    const [userList, setUserList] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    // режим редактирования
-    const [editingUser, setEditingUser] = useState(null); // null => создаём
+    const [editingUser, setEditingUser] = useState(null);
 
-    // открыть модалку на создание
+    const fetchUsers = async () => {
+        setLoading(true);
+        try {
+            const response = await apiClient.get('/users/');
+            setUserList(response.data);
+        } catch (error) {
+            console.error("Failed to fetch users", error);
+            message.error(t('usersPage.fetchError', {defaultValue: 'Failed to load users.'}));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
     const openAddModal = () => {
         setEditingUser(null);
         form.resetFields();
         setIsModalVisible(true);
     };
 
-    // открыть модалку на редактирование
     const openEditModal = (record) => {
         setEditingUser(record);
-        form.setFieldsValue(record);     // префилл формы данными строки
+        form.setFieldsValue(record);
         setIsModalVisible(true);
-    };
-
-    // общий submit: create или update
-    const handleSubmit = (values) => {
-        if (editingUser) {
-            // обновляем по username (username в форме при редактировании мы заблокируем)
-            setUserList(prev =>
-                prev.map(u => (u.username === editingUser.username ? { ...u, ...values } : u))
-            );
-        } else {
-            // добавление (у вас раньше был синтаксический баг со спредом)
-            setUserList(prev => [...prev, { ...values }]);
-        }
-        setIsModalVisible(false);
-        setEditingUser(null);
-        form.resetFields();
     };
 
     const handleCancel = () => {
         setIsModalVisible(false);
         setEditingUser(null);
-        form.resetFields();
+    };
+
+    const handleSubmit = async (values) => {
+        try {
+            if (editingUser) {
+                // Режим обновления
+                await apiClient.put(`/users/${editingUser.id}`, values);
+                message.success(t('usersPage.updateSuccess', {defaultValue: 'User updated successfully'}));
+            } else {
+                // Режим создания (используем эндпоинт регистрации)
+                await apiClient.post('/auth/register', values);
+                message.success(t('usersPage.createSuccess', {defaultValue: 'User created successfully'}));
+            }
+            fetchUsers(); // Обновляем список
+            handleCancel();
+        } catch (error) {
+            console.error("Failed to save user", error);
+            const errorMsg = error.response?.data?.detail || 'An unexpected error occurred.';
+            message.error(errorMsg);
+        }
     };
 
     const columns = [
+        // ... (колонки остаются без изменений) ...
         { title: t('usersPage.table.name'), dataIndex: 'name', key: 'name' },
         { title: t('usersPage.table.username'), dataIndex: 'username', key: 'username' },
         {
@@ -111,7 +128,12 @@ export default function UsersPage() {
                         </Button>
                     </Flex>
 
-                    <Table dataSource={userList} columns={columns} rowKey="username" />
+                    <Table
+                        dataSource={userList}
+                        columns={columns}
+                        rowKey="id" // Используем id в качестве ключа
+                        loading={loading}
+                    />
                 </Content>
             </Layout>
 
