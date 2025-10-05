@@ -1,15 +1,15 @@
 // src/pages/ProjectsListPage.jsx
-import React, {useEffect, useMemo, useState} from 'react';
-import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { PlusOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import AddProjectForm from '../components/AddProjectForm';
-import { createProject, filterProjectsForUser, mockUsers, getTemplates } from '../services/mockData'; // <-- Импортируем mockUsers
-import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../services/api'; // Импортируем наш API клиент
+import { mockUsers, getTemplates } from '../services/mockData'; // <-- Оставляем mockUsers только для списка менеджеров
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -19,47 +19,56 @@ export default function ProjectsListPage() {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const [templates, setTemplates] = useState([]);
-
-    useEffect(() => {
-        setProjects(filterProjectsForUser(user));
-        setTemplates(getTemplates());
-    }, [user]);
     const [form] = Form.useForm();
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [projects, setProjects] = useState([]);
 
-    // Получаем список имен менеджеров из mockUsers
+    const [projects, setProjects] = useState([]);
+    const [templates, setTemplates] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+
+    // Получаем список менеджеров по-старому, пока у нас нет для этого эндпоинта
     const managers = useMemo(() =>
             Object.values(mockUsers).filter(u => u.role === 'manager').map(m => m.name)
         , []);
 
-    // Обновляем логику для фильтрации
+    const fetchProjects = async () => {
+        setLoading(true);
+        try {
+            const response = await apiClient.get('/projects/');
+            setProjects(response.data);
+        } catch (error) {
+            console.error("Failed to fetch projects", error);
+            message.error(t('projects.fetchError', { defaultValue: "Failed to load projects." }));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProjects();
+        // Загрузка шаблонов остается, как была
+        setTemplates(getTemplates());
+    }, [user]);
+
     const activeProjects = useMemo(() => {
         return projects.filter(p => p.status !== 'finished');
     }, [projects]);
 
-    useEffect(() => {
-        setProjects(filterProjectsForUser(user));
-    }, [user]);
+    // Логика фильтрации остается без изменений
     const [filters, setFilters] = useState({ q: '', kunde: 'all', status: 'all' });
-
     const kundeOptions = useMemo(() => {
         const set = new Set(activeProjects.map(p => p.kunde).filter(Boolean));
         return ['all', ...Array.from(set)];
     }, [activeProjects]);
-
     const filtered = useMemo(() => {
         return activeProjects.filter(p => {
-            const byQ =
-                !filters.q ||
-                p.name.toLowerCase().includes(filters.q.toLowerCase()) ||
-                (p.kunde || '').toLowerCase().includes(filters.q.toLowerCase());
+            const byQ = !filters.q || p.name.toLowerCase().includes(filters.q.toLowerCase()) || (p.kunde || '').toLowerCase().includes(filters.q.toLowerCase());
             const byKunde = filters.kunde === 'all' || p.kunde === filters.kunde;
             const byStatus = filters.status === 'all' || p.status === filters.status;
             return byQ && byKunde && byStatus;
         });
     }, [activeProjects, filters]);
+
 
     const canCreate = user?.role === 'auditor' || user?.role === 'admin';
 
@@ -67,43 +76,18 @@ export default function ProjectsListPage() {
         form.resetFields();
         setIsModalVisible(true);
     };
-    const closeCreate = () => setIsModalVisible(false);
 
-    const handleCreate = values => {
-        const newProject = createProject(values);
-
-        if (values.template) {
-            const selectedTemplate = templates.find(t => t.name === values.template);
-            if (selectedTemplate && values.basePlannedDate) {
-                const baseDate = dayjs(values.basePlannedDate); // Базовая дата из формы
-
-                const itemsFromTemplate = selectedTemplate.items.map((itemText, index) => {
-                    // Можно добавить логику для смещения даты, например:
-                    // const plannedDate = baseDate.add(index * 7, 'day').format('YYYY-MM-DD'); // +7 дней за каждый item
-                    // Или просто использовать базовую дату для всех:
-                    const plannedDate = baseDate.format('YYYY-MM-DD');
-
-                    return {
-                        key: `i-${Date.now()}-${Math.random()}-${index}`, // Уникальный ключ
-                        item: itemText,
-                        action: '',
-                        author: '',
-                        reviewer: '',
-                        plannedDate: plannedDate, // <-- Устанавливаем plannedDate
-                        closedDate: '',
-                        documents: [],
-                        status: 'open',
-                        comment: '',
-                        attachments: [],
-                    };
-                });
-                localStorage.setItem(`jiraItems:${newProject.id}`, JSON.stringify(itemsFromTemplate));
-            }
+    const handleCreate = async (values) => {
+        try {
+            await apiClient.post('/projects/', values);
+            message.success(t('projects.createSuccess', { defaultValue: 'Project created successfully!' }));
+            setIsModalVisible(false);
+            fetchProjects(); // Перезагружаем список проектов
+        } catch (error) {
+            console.error("Failed to create project", error);
+            const errorMsg = error.response?.data?.detail || 'An unexpected error occurred.';
+            message.error(errorMsg);
         }
-
-        setProjects(filterProjectsForUser(user));
-        setIsModalVisible(false);
-        form.resetFields();
     };
 
     return (
@@ -132,42 +116,22 @@ export default function ProjectsListPage() {
                         )}
                     </Flex>
 
-                    {/* Фильтры */}
+                    {/* Фильтры остаются без изменений */}
                     <Flex wrap="wrap" gap="small" className="!mb-4">
-                        <Input
-                            allowClear
-                            placeholder={t('projects.filters.search')}
-                            value={filters.q}
-                            onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-                            style={{ maxWidth: 240 }}
-                        />
-                        <Select
-                            value={filters.kunde}
-                            onChange={v => setFilters(f => ({ ...f, kunde: v }))}
-                            style={{ width: 200 }}
-                        >
-                            {kundeOptions.map(k => (
-                                <Option key={k} value={k}>
-                                    {k === 'all' ? t('projects.filters.kundeAll') : k}
-                                </Option>
-                            ))}
+                        <Input allowClear placeholder={t('projects.filters.search')} value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} style={{ maxWidth: 240 }}/>
+                        <Select value={filters.kunde} onChange={v => setFilters(f => ({ ...f, kunde: v }))} style={{ width: 200 }}>
+                            {kundeOptions.map(k => (<Option key={k} value={k}>{k === 'all' ? t('projects.filters.kundeAll') : k}</Option>))}
                         </Select>
-                        <Select
-                            value={filters.status}
-                            onChange={v => setFilters(f => ({ ...f, status: v }))}
-                            style={{ width: 200 }}
-                        >
+                        <Select value={filters.status} onChange={v => setFilters(f => ({ ...f, status: v }))} style={{ width: 200 }}>
                             <Option value="all">{t('projects.filters.statusAll')}</Option>
                             <Option value="in_progress">{t('projects.status.in_progress')}</Option>
                             <Option value="on_hold">{t('projects.status.on_hold')}</Option>
                         </Select>
-                        <Button onClick={() => setFilters({ q: '', kunde: 'all', status: 'all' })}>
-                            {t('projects.filters.reset')}
-                        </Button>
+                        <Button onClick={() => setFilters({ q: '', kunde: 'all', status: 'all' })}>{t('projects.filters.reset')}</Button>
                     </Flex>
 
-                    {/* Список проектов */}
                     <List
+                        loading={loading} // Добавляем индикатор загрузки
                         itemLayout="vertical"
                         dataSource={filtered}
                         rowKey={(item) => item.id}
@@ -177,16 +141,7 @@ export default function ProjectsListPage() {
                                 style={{ cursor: 'pointer' }}
                                 actions={[
                                     <Tag key="kunde">{item.kunde || '—'}</Tag>,
-                                    <Tag
-                                        key="status"
-                                        color={
-                                            item.status === 'in_progress'
-                                                ? 'geekblue'
-                                                : 'gold'
-                                        }
-                                    >
-                                        {t(`projects.status.${item.status}`, { defaultValue: item.status })}
-                                    </Tag>,
+                                    <Tag key="status" color={item.status === 'in_progress' ? 'geekblue' : 'gold'}>{t(`projects.status.${item.status}`, { defaultValue: item.status })}</Tag>,
                                 ]}
                             >
                                 <List.Item.Meta
@@ -197,16 +152,14 @@ export default function ProjectsListPage() {
                         )}
                     />
 
-                    {/* Модалка создания */}
                     <Modal
                         title={t('projects.create')}
                         open={isModalVisible}
-                        onCancel={closeCreate}
+                        onCancel={() => setIsModalVisible(false)}
                         onOk={() => form.submit()}
-                        okText={t('common.createOk', { defaultValue: t('projects.create') })}
+                        okText={t('common.createOk', { defaultValue: 'Create' })}
                         cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                     >
-                        {/* Передаем список менеджеров в форму */}
                         <AddProjectForm form={form} onFinish={handleCreate} managers={managers} templates={templates} />
                     </Modal>
                 </Content>
