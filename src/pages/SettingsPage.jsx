@@ -1,12 +1,13 @@
 // src/pages/SettingsPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm } from 'antd';
+import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import { LogoutOutlined, PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { getTemplates, saveTemplate, deleteTemplate, getKnowledgeBaseItems } from '../services/mockData';
+import apiClient from '../services/api';
+import { getKnowledgeBaseItems } from '../services/mockData';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -15,21 +16,32 @@ export default function SettingsPage() {
     const { user, logout } = useAuth();
     const { t } = useTranslation();
     const [form] = Form.useForm();
-    const modalContentRef = useRef(null); // <-- Создаем ref для содержимого модального окна
+    const modalContentRef = useRef(null);
 
-    // ... (состояния и функции без изменений) ...
     const [templates, setTemplates] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState(null);
     const [targetKeys, setTargetKeys] = useState([]);
     const [knowledgeBaseItems, setKnowledgeBaseItems] = useState([]);
 
+    const fetchTemplates = async () => {
+        setLoading(true);
+        try {
+            const response = await apiClient.get('/templates/');
+            setTemplates(response.data);
+        } catch (error) {
+            console.error("Failed to fetch templates", error);
+            message.error('Failed to load templates.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        setTemplates(getTemplates());
+        fetchTemplates();
         setKnowledgeBaseItems(getKnowledgeBaseItems());
     }, []);
-
-    const refreshTemplates = () => setTemplates(getTemplates());
 
     const openCreateModal = () => {
         setEditingTemplate(null);
@@ -38,27 +50,36 @@ export default function SettingsPage() {
         setIsModalVisible(true);
     };
 
-    const openEditModal = (template) => {
-        setEditingTemplate(template);
-        form.setFieldsValue({ name: template.name });
-        setTargetKeys(template.items);
-        setIsModalVisible(true);
-    };
-
     const handleCancel = () => {
         setIsModalVisible(false);
         setEditingTemplate(null);
     };
 
-    const handleSave = (values) => {
-        saveTemplate(values.name, targetKeys);
-        refreshTemplates();
-        handleCancel();
+    const handleSave = async (values) => {
+        const payload = {
+            name: values.name,
+            items: targetKeys,
+        };
+        try {
+            await apiClient.post('/templates/', payload);
+            message.success(`Template "${values.name}" created successfully!`);
+            fetchTemplates();
+            handleCancel();
+        } catch (error) {
+            console.error("Failed to create template", error);
+            message.error(error.response?.data?.detail || 'Failed to create template.');
+        }
     };
 
-    const handleDelete = (name) => {
-        deleteTemplate(name);
-        refreshTemplates();
+    const handleDelete = async (template) => {
+        try {
+            await apiClient.delete(`/templates/${template.id}`);
+            message.success(`Template "${template.name}" deleted.`);
+            fetchTemplates();
+        } catch (error) {
+            console.error("Failed to delete template", error);
+            message.error('Failed to delete template.');
+        }
     };
 
     const onTransferChange = (newTargetKeys) => {
@@ -76,14 +97,14 @@ export default function SettingsPage() {
             <Paragraph>{t('settingsPage.templates.description')}</Paragraph>
             <List
                 bordered
+                loading={loading}
                 dataSource={templates}
                 renderItem={item => (
                     <List.Item
                         actions={[
-                            <Button icon={<EditOutlined />} onClick={() => openEditModal(item)} />,
                             <Popconfirm
                                 title={t('settingsPage.templates.deleteConfirm', {defaultValue: 'Delete this template?'})}
-                                onConfirm={() => handleDelete(item.name)}
+                                onConfirm={() => handleDelete(item)}
                             >
                                 <Button danger icon={<DeleteOutlined />} />
                             </Popconfirm>
@@ -104,7 +125,7 @@ export default function SettingsPage() {
                 width={1200}
                 destroyOnClose
             >
-                <div ref={modalContentRef}> {/* <-- Привязываем ref к контейнеру */}
+                <div ref={modalContentRef}>
                     <Form form={form} layout="vertical" onFinish={handleSave}>
                         <Form.Item
                             name="name"
@@ -119,7 +140,7 @@ export default function SettingsPage() {
                                 targetKeys={targetKeys}
                                 onChange={onTransferChange}
                                 render={item => item.title}
-                                listStyle={{ width: 600, height: 400 }}
+                                listStyle={{ width: 550, height: 400 }}
                                 showSearch
                                 getPopupContainer={() => modalContentRef.current}
                             />
@@ -128,7 +149,7 @@ export default function SettingsPage() {
                 </div>
             </Modal>
         </>
-    );
+    ); // <-- ВОТ ОНА, НЕДОСТАЮЩАЯ СКОБКА С ТОЧКОЙ-ЗАПЯТОЙ
 
     const renderPersonalSettings = () => (
         <>

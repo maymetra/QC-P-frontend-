@@ -9,7 +9,7 @@ import NavigationTab from '../components/NavigationTab';
 import AddProjectForm from '../components/AddProjectForm';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../services/api'; // Импортируем наш API клиент
-import { mockUsers, getTemplates } from '../services/mockData'; // <-- Оставляем mockUsers только для списка менеджеров
+import { mockUsers } from '../services/mockData';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -22,7 +22,7 @@ export default function ProjectsListPage() {
     const [form] = Form.useForm();
 
     const [projects, setProjects] = useState([]);
-    const [templates, setTemplates] = useState([]);
+    const [templates, setTemplates] = useState([]); // Это состояние остается
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const handleDelete = async (projectId) => {
@@ -55,10 +55,21 @@ export default function ProjectsListPage() {
     };
 
     useEffect(() => {
-        fetchProjects();
-        // Загрузка шаблонов остается, как была
-        setTemplates(getTemplates());
-    }, [user]);
+        const fetchInitialData = async () => {
+            fetchProjects(); // Загружаем проекты
+
+            // Загружаем шаблоны с API
+            try {
+                const templatesResponse = await apiClient.get('/templates/');
+                setTemplates(templatesResponse.data);
+            } catch (error) {
+                console.error("Failed to fetch templates", error);
+                message.error("Failed to load templates.");
+            }
+        };
+
+        fetchInitialData();
+    }, [user]); // Зависимость user остается
 
     const activeProjects = useMemo(() => {
         return projects.filter(p => p.status !== 'finished');
