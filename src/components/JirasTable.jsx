@@ -7,10 +7,23 @@ import { useTranslation } from 'react-i18next';
 import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import apiClient, { API_BASE_URL } from '../services/api'; // Импортируем API_BASE_URL
+import apiClient from '../services/api';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
+
+// Утилита для скачивания, чтобы не засорять компонент
+const downloadFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+};
+
 
 const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting }, ref) => {
     const { t } = useTranslation();
@@ -32,7 +45,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const [editForm] = Form.useForm();
     const [editingItem, setEditingItem] = useState(null);
     const [docUploadOpen, setDocUploadOpen] = useState(false);
-    const [docForm] = Form.useForm(); // Форма для модалки документов
+    const [docForm] = Form.useForm();
     const [remarksOpen, setRemarksOpen] = useState(false);
     const [remarksForm] = Form.useForm();
 
@@ -41,12 +54,10 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             setLoadingKB(true);
             try {
                 const response = await apiClient.get('/knowledge-base/');
-                // Группируем плоский список по категориям для UI
                 const grouped = response.data.reduce((acc, current) => {
                     (acc[current.category] = acc[current.category] || []).push(current.item);
                     return acc;
                 }, {});
-
                 const structured = Object.keys(grouped).map(key => ({
                     category: key,
                     items: grouped[key],
@@ -59,7 +70,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 setLoadingKB(false);
             }
         };
-
         fetchKnowledgeBase();
     }, []);
 
@@ -69,13 +79,11 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             message.error(t('Please select or enter an inspection item.', {defaultValue: 'Please select or enter an inspection item.'}));
             return;
         }
-
         const payload = {
             item: itemText,
             planned_date: values.plannedDate ? values.plannedDate.format('YYYY-MM-DD') : null,
             status: 'open',
         };
-
         try {
             await apiClient.post(`/projects/${projectId}/items`, payload);
             message.success(t('Item added successfully'));
@@ -127,11 +135,10 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
-    // --- ЛОГИКА ЗАГРУЗКИ ФАЙЛОВ ---
+    // --- ЛОГИКА ЗАГРУЗКИ И СКАЧИВАНИЯ ФАЙЛОВ ---
     const handleCustomRequest = async ({ file, onSuccess, onError, onProgress }) => {
         const formData = new FormData();
         formData.append('file', file);
-
         try {
             const response = await apiClient.post(
                 `/files/upload/${projectId}/${editingItem.id}`,
@@ -150,6 +157,20 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             onError(error);
             message.error(t('Failed to upload file'));
             return null;
+        }
+    };
+
+    // НОВАЯ ФУНКЦИЯ ДЛЯ СКАЧИВАНИЯ
+    const handleDownload = async (record, file) => {
+        try {
+            const response = await apiClient.get(
+                `/files/${record.project_id}/${record.id}/${file.file_path}`,
+                { responseType: 'blob' } // Важно: получаем ответ как бинарные данные
+            );
+            downloadFile(response.data, file.name);
+        } catch (error) {
+            console.error('Download error:', error);
+            message.error('Download failed.');
         }
     };
 
@@ -180,7 +201,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
-    // --- Функции открытия модальных окон ---
     const openAdd = () => { addForm.resetFields(); setAddMode('new'); setSelectedCategory(null); setAddOpen(true); };
     const openEdit = (record) => { setEditingItem(record); editForm.setFieldsValue(record); setEditOpen(true); };
 
@@ -206,7 +226,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         return category ? category.items : [];
     }, [selectedCategory, knowledgeBase]);
 
-    // --- КОЛОНКИ ТАБЛИЦЫ ---
     let columns = [
         { title: t('table.pruefungsgegenstand'), dataIndex: 'item', sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
         {
@@ -227,9 +246,9 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 const fileList = (
                     <List size="small" dataSource={docs} renderItem={(doc) => (
                         <List.Item>
-                            <a href={`${API_BASE_URL}/files/${doc.file_path.replace(/\\/g, '/')}`} target="_blank" rel="noopener noreferrer">
-                                <LinkOutlined /> {doc.name}
-                            </a>
+                            <Button type="link" icon={<LinkOutlined />} onClick={() => handleDownload(record, doc)} style={{ padding: 0 }}>
+                                {doc.name}
+                            </Button>
                         </List.Item>
                     )} />
                 );
@@ -268,9 +287,9 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                         {hasAttachments && (
                             <List size="small" dataSource={record.attachments} renderItem={(file) => (
                                 <List.Item style={{padding: '4px 0'}}>
-                                    <a href={`${API_BASE_URL}/files/${file.file_path.replace(/\\/g, '/')}`} target="_blank" rel="noopener noreferrer">
-                                        <PaperClipOutlined /> {file.name}
-                                    </a>
+                                    <Button type="link" icon={<PaperClipOutlined />} onClick={() => handleDownload(record, file)} style={{ padding: 0 }}>
+                                        {file.name}
+                                    </Button>
                                 </List.Item>
                             )}/>
                         )}
@@ -336,7 +355,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 </Form>
             </Modal>
 
-            <Modal title={t('Manage Documents')} open={docUploadOpen} onCancel={() => setDocUploadOpen(false)} onOk={() => docForm.submit()} okText={t('Save')} cancelText={t('common.cancel')}>
+            <Modal title={t('Manage Documents')} open={docUploadOpen} onCancel={() => setDocUploadOpen(false)} onOk={() => docForm.submit()} okText={t('Save')} cancelText={t('common.cancel')} destroyOnClose>
                 <Form form={docForm} onFinish={handleDocUpload} preserve={false}>
                     <Form.Item name="documents" valuePropName="fileList" getValueFromEvent={(e) => e && e.fileList}>
                         <Upload customRequest={handleCustomRequest} multiple>
@@ -346,7 +365,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 </Form>
             </Modal>
 
-            <Modal title={t('Edit remarks')} open={remarksOpen} onCancel={() => setRemarksOpen(false)} onOk={() => remarksForm.submit()} okText={t('Save')} cancelText={t('common.cancel')}>
+            <Modal title={t('Edit remarks')} open={remarksOpen} onCancel={() => setRemarksOpen(false)} onOk={() => remarksForm.submit()} okText={t('Save')} cancelText={t('common.cancel')} destroyOnClose>
                 <Form layout="vertical" form={remarksForm} onFinish={onRemarksFinish} preserve={false}>
                     <Form.Item name="comment" label={t('table.bemerkungen')}><Input.TextArea rows={4} /></Form.Item>
                     <Form.Item label={t('Attachments')} name="attachments" valuePropName="fileList" getValueFromEvent={(e) => e && e.fileList}>
