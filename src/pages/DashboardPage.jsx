@@ -1,6 +1,6 @@
 // src/pages/DashboardPage.jsx
 import React, { useEffect, useState } from 'react';
-import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag, Modal, Spin, message } from 'antd';
+import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag, Modal, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ExclamationCircleOutlined, FieldTimeOutlined, LogoutOutlined } from '@ant-design/icons';
@@ -22,7 +22,13 @@ export default function DashboardPage() {
         return <Navigate to="/projects" replace />;
     }
 
-    const [stats, setStats] = useState(null);
+    // 1. Инициализируем state с дефолтной структурой, чтобы избежать ошибок
+    const [stats, setStats] = useState({
+        pending_items: [],
+        overdue_items: [],
+        pending_items_count: 0,
+        overdue_items_count: 0,
+    });
     const [loading, setLoading] = useState(true);
     const [isPendingModalVisible, setIsPendingModalVisible] = useState(false);
     const [isOverdueModalVisible, setIsOverdueModalVisible] = useState(false);
@@ -44,13 +50,7 @@ export default function DashboardPage() {
         fetchStats();
     }, []);
 
-    if (loading || !stats) {
-        return (
-            <Layout style={{ minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-                <Spin size="large" />
-            </Layout>
-        );
-    }
+    // 2. Убираем полноэкранный Spin. Компонент теперь всегда рендерит основной Layout.
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -72,22 +72,28 @@ export default function DashboardPage() {
                     <Title level={2} className="!mb-6">{t('menu.dashboard', {defaultValue: 'Dashboard'})}</Title>
                     <Row gutter={[16, 16]}>
                         <Col xs={24} sm={12}>
-                            <Card hoverable onClick={() => stats.pending_items_count > 0 && setIsPendingModalVisible(true)}>
-                                <Statistic title={t('itemStatus.pending')} value={stats.pending_items_count} prefix={<FieldTimeOutlined />} />
+                            <Card hoverable onClick={() => !loading && stats.pending_items_count > 0 && setIsPendingModalVisible(true)}>
+                                {/* 3. Добавляем пропс `loading` прямо в компонент Statistic */}
+                                <Statistic
+                                    title={t('itemStatus.pending')}
+                                    value={stats.pending_items_count}
+                                    prefix={<FieldTimeOutlined />}
+                                    loading={loading}
+                                />
                             </Card>
                         </Col>
                         <Col xs={24} sm={12}>
-                            <Card hoverable onClick={() => stats.overdue_items_count > 0 && setIsOverdueModalVisible(true)}>
+                            <Card hoverable onClick={() => !loading && stats.overdue_items_count > 0 && setIsOverdueModalVisible(true)}>
+                                {/* 3. Добавляем пропс `loading` и сюда */}
                                 <Statistic
                                     title={t('itemStatus.overdue')}
                                     value={stats.overdue_items_count}
                                     prefix={<ExclamationCircleOutlined />}
                                     valueStyle={{ color: stats.overdue_items_count > 0 ? '#cf1322' : undefined }}
+                                    loading={loading}
                                 />
                             </Card>
                         </Col>
-
-                        {/* Лог активности мы пока убрали, так как он был на мок-данных. Вернем его позже. */}
                     </Row>
                 </Content>
             </Layout>
@@ -102,11 +108,11 @@ export default function DashboardPage() {
                     dataSource={stats.pending_items}
                     renderItem={item => (
                         <List.Item
-                            actions={[<Button onClick={() => navigate(`/projects/${item.project_id}`)}>{t('Go to project')}</Button>]}
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('Go to project')}</Button>]}
                         >
                             <List.Item.Meta
                                 title={item.item}
-                                description={<Tag>{item.project?.name || `Project ID: ${item.project_id}`}</Tag>}
+                                description={<Tag>{item.project.name}</Tag>}
                             />
                         </List.Item>
                     )}
@@ -123,13 +129,13 @@ export default function DashboardPage() {
                     dataSource={stats.overdue_items}
                     renderItem={item => (
                         <List.Item
-                            actions={[<Button onClick={() => navigate(`/projects/${item.project_id}`)}>{t('Go to project')}</Button>]}
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('Go to project')}</Button>]}
                         >
                             <List.Item.Meta
                                 title={<span style={{color: '#cf1322'}}>{item.item}</span>}
                                 description={
                                     <>
-                                        <Tag>{item.project?.name || `Project ID: ${item.project_id}`}</Tag>
+                                        <Tag>{item.project.name}</Tag>
                                         <Text type="danger">{t('Planned Date')}: {item.planned_date}</Text>
                                     </>
                                 }
