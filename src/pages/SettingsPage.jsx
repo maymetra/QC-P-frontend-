@@ -1,6 +1,5 @@
 // src/pages/SettingsPage.jsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-// 1. Добавляем AutoComplete в импорт из 'antd'
 import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message, AutoComplete } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
@@ -146,7 +145,6 @@ export default function SettingsPage() {
         }
     };
 
-    // 2. Формируем опции для AutoComplete в нужном формате
     const existingCategoryOptions = useMemo(() => {
         const categories = new Set(knowledgeBaseItems.map(item => item.category));
         return Array.from(categories).sort().map(cat => ({ value: cat }));
@@ -158,7 +156,7 @@ export default function SettingsPage() {
             <Flex justify="space-between" align="center">
                 <Title level={3}>{t('settingsPage.templates.title')}</Title>
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTemplateModal}>
-                    {t('settingsPage.templates.create', {defaultValue: 'Create Template'})}
+                    {t('settingsPage.templates.create')}
                 </Button>
             </Flex>
             <Paragraph>{t('settingsPage.templates.description')}</Paragraph>
@@ -171,7 +169,7 @@ export default function SettingsPage() {
                         actions={[
                             <Button icon={<EditOutlined />} onClick={() => openEditTemplateModal(item)} />,
                             <Popconfirm
-                                title={t('settingsPage.templates.deleteConfirm', {defaultValue: 'Delete this template?'})}
+                                title={t('settingsPage.templates.deleteConfirm')}
                                 onConfirm={() => handleTemplateDelete(item)}
                             >
                                 <Button danger icon={<DeleteOutlined />} />
@@ -191,12 +189,12 @@ export default function SettingsPage() {
     const renderKnowledgeBaseManager = () => (
         <>
             <Flex justify="space-between" align="center">
-                <Title level={3}>Knowledge Base</Title>
+                <Title level={3}>{t('settingsPage.kb.title')}</Title>
                 <Button icon={<PlusOutlined />} onClick={openKbModal}>
-                    Add Item
+                    {t('settingsPage.kb.addItem')}
                 </Button>
             </Flex>
-            <Paragraph>Add new items to the knowledge base. They will become available for use in templates.</Paragraph>
+            <Paragraph>{t('settingsPage.kb.description')}</Paragraph>
         </>
     );
 
@@ -254,7 +252,7 @@ export default function SettingsPage() {
             </Layout>
 
             <Modal
-                title={editingTemplate ? t('settingsPage.templates.editTitle', {defaultValue: 'Edit Template'}) : t('settingsPage.templates.createTitle', {defaultValue: 'Create New Template'})}
+                title={editingTemplate ? t('settingsPage.templates.editTitle') : t('settingsPage.templates.createTitle')}
                 open={isTemplateModalVisible}
                 onCancel={handleTemplateCancel}
                 onOk={() => templateForm.submit()}
@@ -265,12 +263,12 @@ export default function SettingsPage() {
                     <Form form={templateForm} layout="vertical" onFinish={handleTemplateSave}>
                         <Form.Item
                             name="name"
-                            label={t('settingsPage.templates.name', {defaultValue: 'Template Name'})}
+                            label={t('settingsPage.templates.name')}
                             rules={[{ required: true }]}
                         >
                             <Input disabled={!!editingTemplate}/>
                         </Form.Item>
-                        <Form.Item label={t('settingsPage.templates.items', {defaultValue: 'Inspection Items'})}>
+                        <Form.Item label={t('settingsPage.templates.items')}>
                             <Transfer
                                 dataSource={knowledgeBaseItems}
                                 targetKeys={targetKeys}
@@ -287,24 +285,23 @@ export default function SettingsPage() {
             </Modal>
 
             <Modal
-                title="Add to Knowledge Base"
+                title={t('settingsPage.kb.modalTitle')}
                 open={isKbModalVisible}
                 onCancel={handleKbCancel}
                 onOk={() => kbForm.submit()}
-                okText="Add Item"
+                okText={t('settingsPage.kb.addItem')}
                 destroyOnClose
             >
                 <Form form={kbForm} layout="vertical" onFinish={handleKbSave}>
                     <Form.Item
                         name="category"
-                        label="Category"
-                        rules={[{ required: true, message: 'Please select or create a category!' }]}
+                        label={t('settingsPage.kb.categoryLabel')}
+                        rules={[{ required: true, message: t('settingsPage.kb.categoryMsg') }]}
                     >
-                        {/* 3. Заменяем Select на AutoComplete */}
                         <AutoComplete
                             options={existingCategoryOptions}
                             style={{ width: '100%' }}
-                            placeholder="Select or type a new category"
+                            placeholder={t('settingsPage.kb.categoryPlaceholder')}
                             filterOption={(inputValue, option) =>
                                 option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
                             }
@@ -312,8 +309,8 @@ export default function SettingsPage() {
                     </Form.Item>
                     <Form.Item
                         name="item"
-                        label="Item Text"
-                        rules={[{ required: true, message: 'Please enter the item text!'}]}
+                        label={t('settingsPage.kb.itemLabel')}
+                        rules={[{ required: true, message: t('settingsPage.kb.itemMsg')}]}
                     >
                         <Input.TextArea rows={4} />
                     </Form.Item>

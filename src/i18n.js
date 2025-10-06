@@ -133,6 +133,17 @@ i18n
                         global: {
                             title: 'Global Application Settings',
                             description: 'Here you can manage integrations and data archiving rules.',
+                        },
+                        kb: {
+                            title: 'Knowledge Base',
+                            description: 'Add new items to the knowledge base. They will become available for use in templates.',
+                            addItem: 'Add Item',
+                            modalTitle: 'Add to Knowledge Base',
+                            categoryLabel: 'Category',
+                            categoryMsg: 'Please select or create a category!',
+                            categoryPlaceholder: 'Select or type a new category',
+                            itemLabel: 'Item Text',
+                            itemMsg: 'Please enter the item text!',
                         }
                     },
                 },
@@ -263,6 +274,17 @@ i18n
                         global: {
                             title: 'Globale Anwendungseinstellungen',
                             description: 'Hier können Sie Integrationen und Datenarchivierungsregeln verwalten.',
+                        },
+                        kb: {
+                            title: 'Wissensdatenbank',
+                            description: 'Fügen Sie neue Einträge zur Wissensdatenbank hinzu. Diese stehen dann in Vorlagen zur Verfügung.',
+                            addItem: 'Eintrag hinzufügen',
+                            modalTitle: 'Zur Wissensdatenbank hinzufügen',
+                            categoryLabel: 'Kategorie',
+                            categoryMsg: 'Bitte wählen oder erstellen Sie eine Kategorie!',
+                            categoryPlaceholder: 'Wählen oder tippen Sie eine neue Kategorie',
+                            itemLabel: 'Eintragstext',
+                            itemMsg: 'Bitte geben Sie den Text des Eintrags ein!',
                         }
                     },
                 },
