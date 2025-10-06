@@ -1,13 +1,13 @@
 // src/pages/DashboardPage.jsx
 import React, { useEffect, useState } from 'react';
-import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag, Modal } from 'antd';
+import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag, Modal, Spin, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ExclamationCircleOutlined, FieldTimeOutlined, LogoutOutlined } from '@ant-design/icons';
 import NavigationTab from '../components/NavigationTab';
 import LanguageSwitch from '../components/LanguageSwitch';
-import { getGlobalEvents, mockProjects as allProjects } from '../services/mockData';
-import { useNavigate, Navigate } from 'react-router-dom'; // <-- Добавляем Navigate
+import { useNavigate, Navigate } from 'react-router-dom';
+import apiClient from '../services/api';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -17,53 +17,40 @@ export default function DashboardPage() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    // <-- **ВОТ НОВАЯ ЛОГИКА ЗАЩИТЫ** -->
-    // Если роль не подходит, просто перенаправляем на проекты
     const isAuthorized = user?.role === 'admin' || user?.role === 'auditor';
     if (!isAuthorized) {
         return <Navigate to="/projects" replace />;
     }
 
-    // ... (остальной код компонента остается без изменений)
-    const [pendingItems, setPendingItems] = useState([]);
-    const [overdueItems, setOverdueItems] = useState([]);
-    const [recentActivity, setRecentActivity] = useState([]);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [isPendingModalVisible, setIsPendingModalVisible] = useState(false);
     const [isOverdueModalVisible, setIsOverdueModalVisible] = useState(false);
 
     useEffect(() => {
-        let allPendingItems = [];
-        let allOverdueItems = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        allProjects.forEach(project => {
+        const fetchStats = async () => {
+            setLoading(true);
             try {
-                const itemsRaw = localStorage.getItem(`jiraItems:${project.id}`);
-                if (itemsRaw) {
-                    const items = JSON.parse(itemsRaw);
-                    items.forEach(item => {
-                        const itemWithProjectInfo = { ...item, projectId: project.id, projectName: project.name };
+                const response = await apiClient.get('/dashboard/statistics');
+                setStats(response.data);
+            } catch (error) {
+                console.error("Failed to fetch dashboard stats", error);
+                message.error("Failed to load dashboard statistics.");
+            } finally {
+                setLoading(false);
+            }
+        };
 
-                        if (item.status === 'pending') {
-                            allPendingItems.push(itemWithProjectInfo);
-                        }
+        fetchStats();
+    }, []);
 
-                        const isOverdue = item.plannedDate && new Date(item.plannedDate) < today;
-                        const isNegativeStatus = item.status === 'rejected' || item.status === 'open';
-
-                        if (isOverdue && isNegativeStatus) {
-                            allOverdueItems.push(itemWithProjectInfo);
-                        }
-                    });
-                }
-            } catch (e) { console.error(e); }
-        });
-
-        setPendingItems(allPendingItems);
-        setOverdueItems(allOverdueItems);
-        setRecentActivity(getGlobalEvents());
-    }, [user]);
+    if (loading || !stats) {
+        return (
+            <Layout style={{ minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin size="large" />
+            </Layout>
+        );
+    }
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -85,41 +72,22 @@ export default function DashboardPage() {
                     <Title level={2} className="!mb-6">{t('menu.dashboard', {defaultValue: 'Dashboard'})}</Title>
                     <Row gutter={[16, 16]}>
                         <Col xs={24} sm={12}>
-                            <Card hoverable onClick={() => setIsPendingModalVisible(true)}>
-                                <Statistic title={t('itemStatus.pending')} value={pendingItems.length} prefix={<FieldTimeOutlined />} />
+                            <Card hoverable onClick={() => stats.pending_items_count > 0 && setIsPendingModalVisible(true)}>
+                                <Statistic title={t('itemStatus.pending')} value={stats.pending_items_count} prefix={<FieldTimeOutlined />} />
                             </Card>
                         </Col>
                         <Col xs={24} sm={12}>
-                            <Card hoverable onClick={() => setIsOverdueModalVisible(true)}>
+                            <Card hoverable onClick={() => stats.overdue_items_count > 0 && setIsOverdueModalVisible(true)}>
                                 <Statistic
                                     title={t('itemStatus.overdue')}
-                                    value={overdueItems.length}
+                                    value={stats.overdue_items_count}
                                     prefix={<ExclamationCircleOutlined />}
-                                    valueStyle={{ color: overdueItems.length > 0 ? '#cf1322' : undefined }}
+                                    valueStyle={{ color: stats.overdue_items_count > 0 ? '#cf1322' : undefined }}
                                 />
                             </Card>
                         </Col>
 
-                        <Col xs={24}>
-                            <Card title={t('Recent Activity', {defaultValue: 'Recent Activity'})}>
-                                <List
-                                    size="small"
-                                    dataSource={recentActivity}
-                                    renderItem={(item) => (
-                                        <List.Item>
-                                            <Text>
-                                                <Text type="secondary">
-                                                    {new Date(item.ts).toLocaleString()} - {item.by}:
-                                                </Text>
-                                                {item.projectName && <Tag style={{marginLeft: 8}}>{item.projectName}</Tag>}
-                                                {item.message}
-                                            </Text>
-                                        </List.Item>
-                                    )}
-                                    locale={{ emptyText: t('No recent activity', {defaultValue: 'No recent activity'})}}
-                                />
-                            </Card>
-                        </Col>
+                        {/* Лог активности мы пока убрали, так как он был на мок-данных. Вернем его позже. */}
                     </Row>
                 </Content>
             </Layout>
@@ -131,18 +99,17 @@ export default function DashboardPage() {
                 footer={null}
             >
                 <List
-                    dataSource={pendingItems}
+                    dataSource={stats.pending_items}
                     renderItem={item => (
                         <List.Item
-                            actions={[<Button onClick={() => navigate(`/projects/${item.projectId}`)}>{t('Go to project', {defaultValue: 'Go to project'})}</Button>]}
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project_id}`)}>{t('Go to project')}</Button>]}
                         >
                             <List.Item.Meta
                                 title={item.item}
-                                description={<Tag>{item.projectName}</Tag>}
+                                description={<Tag>{item.project?.name || `Project ID: ${item.project_id}`}</Tag>}
                             />
                         </List.Item>
                     )}
-                    locale={{ emptyText: t('No pending items', {defaultValue: 'No pending items'})}}
                 />
             </Modal>
 
@@ -153,23 +120,22 @@ export default function DashboardPage() {
                 footer={null}
             >
                 <List
-                    dataSource={overdueItems}
+                    dataSource={stats.overdue_items}
                     renderItem={item => (
                         <List.Item
-                            actions={[<Button onClick={() => navigate(`/projects/${item.projectId}`)}>{t('Go to project', {defaultValue: 'Go to project'})}</Button>]}
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project_id}`)}>{t('Go to project')}</Button>]}
                         >
                             <List.Item.Meta
                                 title={<span style={{color: '#cf1322'}}>{item.item}</span>}
                                 description={
                                     <>
-                                        <Tag>{item.projectName}</Tag>
-                                        <Text type="danger">{t('Planned Date', {defaultValue: 'Planned Date'})}: {item.plannedDate}</Text>
+                                        <Tag>{item.project?.name || `Project ID: ${item.project_id}`}</Tag>
+                                        <Text type="danger">{t('Planned Date')}: {item.planned_date}</Text>
                                     </>
                                 }
                             />
                         </List.Item>
                     )}
-                    locale={{ emptyText: t('No overdue items', {defaultValue: 'No overdue items'})}}
                 />
             </Modal>
         </Layout>
