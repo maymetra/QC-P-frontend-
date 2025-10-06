@@ -7,8 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { LinkOutlined, PlusOutlined, UploadOutlined, PaperClipOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-// import { knowledgeBase } from '../services/mockData'; // <-- УДАЛЕНО
-import apiClient from '../services/api';
+import apiClient, { API_BASE_URL } from '../services/api'; // Импортируем API_BASE_URL
 import dayjs from 'dayjs';
 
 const { Option } = Select;
@@ -22,29 +21,21 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const isAuditor = role === 'admin' || role === 'auditor';
     const isManager = role === 'manager';
 
-    // Состояния для модальных окон
+    // Состояния
     const [addOpen, setAddOpen] = useState(false);
     const [addForm] = Form.useForm();
     const [addMode, setAddMode] = useState('new');
     const [selectedCategory, setSelectedCategory] = useState(null);
-
-    // --- НОВЫЕ СОСТОЯНИЯ ДЛЯ БАЗЫ ЗНАНИЙ ---
     const [knowledgeBase, setKnowledgeBase] = useState([]);
     const [loadingKB, setLoadingKB] = useState(false);
-    // ----------------------------------------
-
     const [editOpen, setEditOpen] = useState(false);
     const [editForm] = Form.useForm();
     const [editingItem, setEditingItem] = useState(null);
-
     const [docUploadOpen, setDocUploadOpen] = useState(false);
-    const [docFiles, setDocFiles] = useState([]);
-
+    const [docForm] = Form.useForm(); // Форма для модалки документов
     const [remarksOpen, setRemarksOpen] = useState(false);
     const [remarksForm] = Form.useForm();
-    const [files, setFiles] = useState([]);
 
-    // --- НОВЫЙ useEffect для загрузки Базы Знаний ---
     useEffect(() => {
         const fetchKnowledgeBase = async () => {
             setLoadingKB(true);
@@ -71,10 +62,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
 
         fetchKnowledgeBase();
     }, []);
-    // ----------------------------------------------
 
-
-    // ... (все обработчики onAddFinish, handleDelete и т.д. остаются без изменений) ...
     const onAddFinish = async (values) => {
         const itemText = values.addMode === 'new' ? values.newItemText : values.selectedItem;
         if (!itemText) {
@@ -91,7 +79,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.post(`/projects/${projectId}/items`, payload);
             message.success(t('Item added successfully'));
-            fetchItems(); // Обновляем список через пропс
+            fetchItems();
             setAddOpen(false);
             onLog({ kind: 'add_item', by: currentUserName, message: `${itemText} -> Created` });
         } catch (error) {
@@ -124,18 +112,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
-    const handleDocUpload = async () => {
-        const payload = { documents: docFiles };
-        try {
-            await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
-            message.success(t('Documents updated.', {defaultValue: 'Documents updated.'}));
-            fetchItems();
-            setDocUploadOpen(false);
-        } catch (error) {
-            message.error(t('Failed to update documents'));
-        }
-    };
-
     const handleStatusChange = async (itemId, newStatus) => {
         const payload = {
             status: newStatus,
@@ -151,14 +127,52 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
+    // --- ЛОГИКА ЗАГРУЗКИ ФАЙЛОВ ---
+    const handleCustomRequest = async ({ file, onSuccess, onError, onProgress }) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await apiClient.post(
+                `/files/upload/${projectId}/${editingItem.id}`,
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    onUploadProgress: (event) => {
+                        onProgress({ percent: (event.loaded / event.total) * 100 });
+                    },
+                }
+            );
+            onSuccess(response.data);
+            return response.data;
+        } catch (error) {
+            console.error("File upload failed", error);
+            onError(error);
+            message.error(t('Failed to upload file'));
+            return null;
+        }
+    };
+
+    const handleDocUpload = async (values) => {
+        const payload = { documents: values.documents?.map(f => f.response || f) || [] };
+        try {
+            await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
+            message.success(t('Documents updated.'));
+            fetchItems();
+            setDocUploadOpen(false);
+        } catch (error) {
+            message.error(t('Failed to update documents'));
+        }
+    };
+
     const onRemarksFinish = async (values) => {
         const payload = {
             comment: values.comment || '',
-            attachments: files,
+            attachments: values.attachments?.map(f => f.response || f) || [],
         };
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
-            message.success(t('Saved', { defaultValue: 'Saved' }));
+            message.success(t('Saved'));
             fetchItems();
             setRemarksOpen(false);
         } catch (error) {
@@ -166,42 +180,33 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
+    // --- Функции открытия модальных окон ---
     const openAdd = () => { addForm.resetFields(); setAddMode('new'); setSelectedCategory(null); setAddOpen(true); };
     const openEdit = (record) => { setEditingItem(record); editForm.setFieldsValue(record); setEditOpen(true); };
-    const openDocUpload = (record) => { setEditingItem(record); setDocFiles(record.documents || []); setDocUploadOpen(true); };
+
+    const openDocUpload = (record) => {
+        setEditingItem(record);
+        docForm.setFieldsValue({ documents: record.documents || [] });
+        setDocUploadOpen(true);
+    };
+
     const openRemarks = (record) => {
         if (!isAuditor) return;
         setEditingItem(record);
-        remarksForm.setFieldsValue({ comment: record.comment || '' });
-        setFiles(record.attachments || []);
+        remarksForm.setFieldsValue({
+            comment: record.comment || '',
+            attachments: record.attachments || [],
+        });
         setRemarksOpen(true);
     };
 
-    const beforeDocUpload = (file) => {
-        const newFile = { uid: file.uid, name: file.name, url: URL.createObjectURL(file) };
-        setDocFiles(prev => [...prev, newFile]);
-        return false;
-    };
-    const onRemoveDoc = (file) => {
-        setDocFiles(prev => prev.filter(f => f.uid !== file.uid));
-    };
-    const beforeUpload = (file) => {
-        const fileWithUrl = { uid: file.uid, name: file.name, url: URL.createObjectURL(file), originFileObj: file };
-        setFiles(prev => [...prev, fileWithUrl]);
-        return false;
-    };
-    const onRemoveFile = (file) => {
-        setFiles(prev => prev.filter(f => f.uid !== file.uid));
-    };
-
-    // Этот хук теперь работает с данными из state
     const availableItems = useMemo(() => {
         if (!selectedCategory) return [];
         const category = knowledgeBase.find(c => c.category === selectedCategory);
         return category ? category.items : [];
     }, [selectedCategory, knowledgeBase]);
 
-    // ... (Код колонок и рендер компонента остаются без изменений) ...
+    // --- КОЛОНКИ ТАБЛИЦЫ ---
     let columns = [
         { title: t('table.pruefungsgegenstand'), dataIndex: 'item', sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
         {
@@ -215,17 +220,25 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         {
             title: t('table.dokument'), dataIndex: 'documents',
             render: (docs, record) => {
-                const hasDocs = docs && docs.length > 0;
-                if (hasDocs) {
-                    return (
-                        <div>
-                            <List size="small" dataSource={docs} renderItem={(doc) => (<List.Item><a href={doc.url} target="_blank" rel="noopener noreferrer"><LinkOutlined /> {doc.name}</a></List.Item>)} />
-                            {isManager && !isExporting && <Button type="dashed" size="small" icon={<EditOutlined />} onClick={() => openDocUpload(record)} style={{marginTop: '8px'}}>{t('Edit', {defaultValue: 'Edit'})}</Button>}
-                        </div>
-                    );
+                if (!docs || docs.length === 0) {
+                    if (isManager && !isExporting) return <Button type="dashed" size="small" icon={<UploadOutlined />} onClick={() => openDocUpload(record)}>{t('Upload')}</Button>;
+                    return null;
                 }
-                if (isManager && !isExporting) return <Button type="dashed" size="small" icon={<UploadOutlined />} onClick={() => openDocUpload(record)}>{t('Upload', {defaultValue: 'Upload'})}</Button>;
-                return null;
+                const fileList = (
+                    <List size="small" dataSource={docs} renderItem={(doc) => (
+                        <List.Item>
+                            <a href={`${API_BASE_URL}/files/${doc.file_path.replace(/\\/g, '/')}`} target="_blank" rel="noopener noreferrer">
+                                <LinkOutlined /> {doc.name}
+                            </a>
+                        </List.Item>
+                    )} />
+                );
+                return (
+                    <div>
+                        {fileList}
+                        {isManager && !isExporting && <Button type="dashed" size="small" icon={<EditOutlined />} onClick={() => openDocUpload(record)} style={{marginTop: '8px'}}>{t('Edit')}</Button>}
+                    </div>
+                );
             }
         },
         {
@@ -252,7 +265,15 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 const content = (
                     <div>
                         {text && <span>{text}</span>}
-                        {hasAttachments && <List size="small" dataSource={record.attachments} renderItem={(file) => (<List.Item style={{padding: '4px 0'}}><a href={file.url} target="_blank" rel="noopener noreferrer"><PaperClipOutlined /> {file.name}</a></List.Item>)}/>}
+                        {hasAttachments && (
+                            <List size="small" dataSource={record.attachments} renderItem={(file) => (
+                                <List.Item style={{padding: '4px 0'}}>
+                                    <a href={`${API_BASE_URL}/files/${file.file_path.replace(/\\/g, '/')}`} target="_blank" rel="noopener noreferrer">
+                                        <PaperClipOutlined /> {file.name}
+                                    </a>
+                                </List.Item>
+                            )}/>
+                        )}
                     </div>
                 );
                 if (isAuditor && !isExporting) {
@@ -315,15 +336,23 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 </Form>
             </Modal>
 
-            <Modal title={t('Manage Documents', {defaultValue: 'Manage Documents'})} open={docUploadOpen} onCancel={() => setDocUploadOpen(false)} onOk={handleDocUpload} okText={t('Save')} cancelText={t('common.cancel')}>
-                <Upload multiple fileList={docFiles} beforeUpload={beforeDocUpload} onRemove={onRemoveDoc}><Button icon={<UploadOutlined />}>{t('Add File', {defaultValue: 'Add File'})}</Button></Upload>
+            <Modal title={t('Manage Documents')} open={docUploadOpen} onCancel={() => setDocUploadOpen(false)} onOk={() => docForm.submit()} okText={t('Save')} cancelText={t('common.cancel')}>
+                <Form form={docForm} onFinish={handleDocUpload} preserve={false}>
+                    <Form.Item name="documents" valuePropName="fileList" getValueFromEvent={(e) => e && e.fileList}>
+                        <Upload customRequest={handleCustomRequest} multiple>
+                            <Button icon={<UploadOutlined />}>{t('Add File')}</Button>
+                        </Upload>
+                    </Form.Item>
+                </Form>
             </Modal>
 
-            <Modal title={t('Edit remarks', { defaultValue: 'Edit remarks' })} open={remarksOpen} onCancel={() => { setRemarksOpen(false); setEditingItem(null); setFiles([]); }} onOk={remarksForm.submit} okText={t('Save', { defaultValue: 'Save' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
-                <Form layout="vertical" form={remarksForm} onFinish={onRemarksFinish}>
+            <Modal title={t('Edit remarks')} open={remarksOpen} onCancel={() => setRemarksOpen(false)} onOk={() => remarksForm.submit()} okText={t('Save')} cancelText={t('common.cancel')}>
+                <Form layout="vertical" form={remarksForm} onFinish={onRemarksFinish} preserve={false}>
                     <Form.Item name="comment" label={t('table.bemerkungen')}><Input.TextArea rows={4} /></Form.Item>
-                    <Form.Item label={t('Attachments', { defaultValue: 'Attachments' })} valuePropName="fileList">
-                        <Upload multiple beforeUpload={beforeUpload} onRemove={onRemoveFile} fileList={files} listType="text"><Button icon={<UploadOutlined />}>{t('Add files', { defaultValue: 'Add files' })}</Button></Upload>
+                    <Form.Item label={t('Attachments')} name="attachments" valuePropName="fileList" getValueFromEvent={(e) => e && e.fileList}>
+                        <Upload customRequest={handleCustomRequest} multiple listType="text">
+                            <Button icon={<UploadOutlined />}>{t('Add files')}</Button>
+                        </Upload>
                     </Form.Item>
                 </Form>
             </Modal>
