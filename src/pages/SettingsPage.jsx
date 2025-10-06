@@ -1,6 +1,7 @@
 // src/pages/SettingsPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message } from 'antd';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+// 1. Добавляем AutoComplete в импорт из 'antd'
+import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message, AutoComplete } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
@@ -14,18 +15,24 @@ const { Title, Text, Paragraph } = Typography;
 export default function SettingsPage() {
     const { user, logout } = useAuth();
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const [templateForm] = Form.useForm();
+    const [kbForm] = Form.useForm();
     const modalContentRef = useRef(null);
 
+    // Состояния для Шаблонов
     const [templates, setTemplates] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+    const [isTemplateModalVisible, setIsTemplateModalVisible] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState(null);
     const [targetKeys, setTargetKeys] = useState([]);
+
+    // Состояния для Базы Знаний
     const [knowledgeBaseItems, setKnowledgeBaseItems] = useState([]);
+    const [loadingKB, setLoadingKB] = useState(false);
+    const [isKbModalVisible, setIsKbModalVisible] = useState(false);
 
     const fetchTemplates = async () => {
-        setLoading(true);
+        setLoadingTemplates(true);
         try {
             const response = await apiClient.get('/templates/');
             setTemplates(response.data);
@@ -33,53 +40,54 @@ export default function SettingsPage() {
             console.error("Failed to fetch templates", error);
             message.error('Failed to load templates.');
         } finally {
-            setLoading(false);
+            setLoadingTemplates(false);
+        }
+    };
+
+    const fetchKnowledgeBase = async () => {
+        setLoadingKB(true);
+        try {
+            const kbResponse = await apiClient.get('/knowledge-base/');
+            const formattedItems = kbResponse.data.map(item => ({
+                key: item.item,
+                title: item.item,
+                category: item.category,
+            }));
+            setKnowledgeBaseItems(formattedItems);
+        } catch (error) {
+            console.error("Failed to fetch knowledge base", error);
+            message.error("Failed to load knowledge base items.");
+        } finally {
+            setLoadingKB(false);
         }
     };
 
     useEffect(() => {
-        const fetchInitialData = async () => {
-            fetchTemplates();
-            // Загружаем knowledge base с API
-            try {
-                const kbResponse = await apiClient.get('/knowledge-base/');
-                // Преобразуем данные в формат, который ожидает Transfer
-                const formattedItems = kbResponse.data.map(item => ({
-                    key: item.item,
-                    title: item.item,
-                    category: item.category, // Можно использовать для фильтрации в будущем
-                }));
-                setKnowledgeBaseItems(formattedItems);
-            } catch (error) {
-                console.error("Failed to fetch knowledge base", error);
-                message.error("Failed to load knowledge base items.");
-            }
-        };
-
-        fetchInitialData();
+        fetchTemplates();
+        fetchKnowledgeBase();
     }, []);
 
-    const openCreateModal = () => {
+    // --- Логика для модалки ШАБЛОНОВ ---
+    const openCreateTemplateModal = () => {
         setEditingTemplate(null);
-        form.resetFields();
+        templateForm.resetFields();
         setTargetKeys([]);
-        setIsModalVisible(true);
+        setIsTemplateModalVisible(true);
     };
 
-    // Возвращаем функцию редактирования
-    const openEditModal = (template) => {
+    const openEditTemplateModal = (template) => {
         setEditingTemplate(template);
-        form.setFieldsValue({ name: template.name });
+        templateForm.setFieldsValue({ name: template.name });
         setTargetKeys(template.items);
-        setIsModalVisible(true);
+        setIsTemplateModalVisible(true);
     };
 
-    const handleCancel = () => {
-        setIsModalVisible(false);
+    const handleTemplateCancel = () => {
+        setIsTemplateModalVisible(false);
         setEditingTemplate(null);
     };
 
-    const handleSave = async (values) => {
+    const handleTemplateSave = async (values) => {
         const payload = {
             name: values.name,
             items: targetKeys,
@@ -87,23 +95,21 @@ export default function SettingsPage() {
 
         try {
             if (editingTemplate) {
-                // Режим обновления
                 await apiClient.put(`/templates/${editingTemplate.id}`, payload);
                 message.success(`Template "${values.name}" updated successfully!`);
             } else {
-                // Режим создания
                 await apiClient.post('/templates/', payload);
                 message.success(`Template "${values.name}" created successfully!`);
             }
             fetchTemplates();
-            handleCancel();
+            handleTemplateCancel();
         } catch (error) {
             console.error("Failed to save template", error);
             message.error(error.response?.data?.detail || 'Failed to save template.');
         }
     };
 
-    const handleDelete = async (template) => {
+    const handleTemplateDelete = async (template) => {
         try {
             await apiClient.delete(`/templates/${template.id}`);
             message.success(`Template "${template.name}" deleted.`);
@@ -118,27 +124,55 @@ export default function SettingsPage() {
         setTargetKeys(newTargetKeys);
     };
 
+    // --- Логика для модалки БАЗЫ ЗНАНИЙ ---
+    const openKbModal = () => {
+        kbForm.resetFields();
+        setIsKbModalVisible(true);
+    };
+
+    const handleKbCancel = () => {
+        setIsKbModalVisible(false);
+    };
+
+    const handleKbSave = async (values) => {
+        try {
+            await apiClient.post('/knowledge-base/', values);
+            message.success('New item added to Knowledge Base!');
+            handleKbCancel();
+            fetchKnowledgeBase();
+        } catch (error) {
+            console.error("Failed to add KB item", error);
+            message.error(error.response?.data?.detail || "Failed to add item.");
+        }
+    };
+
+    // 2. Формируем опции для AutoComplete в нужном формате
+    const existingCategoryOptions = useMemo(() => {
+        const categories = new Set(knowledgeBaseItems.map(item => item.category));
+        return Array.from(categories).sort().map(cat => ({ value: cat }));
+    }, [knowledgeBaseItems]);
+
+
     const renderTemplateManager = () => (
         <>
             <Flex justify="space-between" align="center">
                 <Title level={3}>{t('settingsPage.templates.title')}</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTemplateModal}>
                     {t('settingsPage.templates.create', {defaultValue: 'Create Template'})}
                 </Button>
             </Flex>
             <Paragraph>{t('settingsPage.templates.description')}</Paragraph>
             <List
                 bordered
-                loading={loading}
+                loading={loadingTemplates}
                 dataSource={templates}
                 renderItem={item => (
                     <List.Item
                         actions={[
-                            // Возвращаем кнопку Edit
-                            <Button icon={<EditOutlined />} onClick={() => openEditModal(item)} />,
+                            <Button icon={<EditOutlined />} onClick={() => openEditTemplateModal(item)} />,
                             <Popconfirm
                                 title={t('settingsPage.templates.deleteConfirm', {defaultValue: 'Delete this template?'})}
-                                onConfirm={() => handleDelete(item)}
+                                onConfirm={() => handleTemplateDelete(item)}
                             >
                                 <Button danger icon={<DeleteOutlined />} />
                             </Popconfirm>
@@ -151,38 +185,18 @@ export default function SettingsPage() {
                     </List.Item>
                 )}
             />
-            <Modal
-                title={editingTemplate ? t('settingsPage.templates.editTitle', {defaultValue: 'Edit Template'}) : t('settingsPage.templates.createTitle', {defaultValue: 'Create New Template'})}
-                open={isModalVisible}
-                onCancel={handleCancel}
-                onOk={() => form.submit()}
-                width={1200}
-                destroyOnClose
-            >
-                <div ref={modalContentRef}>
-                    <Form form={form} layout="vertical" onFinish={handleSave}>
-                        <Form.Item
-                            name="name"
-                            label={t('settingsPage.templates.name', {defaultValue: 'Template Name'})}
-                            rules={[{ required: true }]}
-                        >
-                            {/* Запрещаем менять имя при редактировании, чтобы избежать путаницы */}
-                            <Input disabled={!!editingTemplate}/>
-                        </Form.Item>
-                        <Form.Item label={t('settingsPage.templates.items', {defaultValue: 'Inspection Items'})}>
-                            <Transfer
-                                dataSource={knowledgeBaseItems}
-                                targetKeys={targetKeys}
-                                onChange={onTransferChange}
-                                render={item => item.title}
-                                listStyle={{ width: 550, height: 400 }}
-                                showSearch
-                                getPopupContainer={() => modalContentRef.current}
-                            />
-                        </Form.Item>
-                    </Form>
-                </div>
-            </Modal>
+        </>
+    );
+
+    const renderKnowledgeBaseManager = () => (
+        <>
+            <Flex justify="space-between" align="center">
+                <Title level={3}>Knowledge Base</Title>
+                <Button icon={<PlusOutlined />} onClick={openKbModal}>
+                    Add Item
+                </Button>
+            </Flex>
+            <Paragraph>Add new items to the knowledge base. They will become available for use in templates.</Paragraph>
         </>
     );
 
@@ -223,8 +237,14 @@ export default function SettingsPage() {
                 <Content className="p-6 bg-gray-50">
                     <Title level={2} className="!mb-6">{t('settingsPage.title')}</Title>
 
-                    {user.role === 'auditor' && renderTemplateManager()}
-                    {user.role === 'auditor' && <Divider />}
+                    {(user.role === 'admin' || user.role === 'auditor') && (
+                        <>
+                            {renderTemplateManager()}
+                            <Divider />
+                            {renderKnowledgeBaseManager()}
+                            <Divider />
+                        </>
+                    )}
 
                     {(user.role === 'admin' || user.role === 'auditor' || user.role === 'manager') && renderPersonalSettings()}
 
@@ -232,6 +252,73 @@ export default function SettingsPage() {
                     {user.role === 'admin' && renderGlobalSettings()}
                 </Content>
             </Layout>
+
+            <Modal
+                title={editingTemplate ? t('settingsPage.templates.editTitle', {defaultValue: 'Edit Template'}) : t('settingsPage.templates.createTitle', {defaultValue: 'Create New Template'})}
+                open={isTemplateModalVisible}
+                onCancel={handleTemplateCancel}
+                onOk={() => templateForm.submit()}
+                width={1200}
+                destroyOnClose
+            >
+                <div ref={modalContentRef}>
+                    <Form form={templateForm} layout="vertical" onFinish={handleTemplateSave}>
+                        <Form.Item
+                            name="name"
+                            label={t('settingsPage.templates.name', {defaultValue: 'Template Name'})}
+                            rules={[{ required: true }]}
+                        >
+                            <Input disabled={!!editingTemplate}/>
+                        </Form.Item>
+                        <Form.Item label={t('settingsPage.templates.items', {defaultValue: 'Inspection Items'})}>
+                            <Transfer
+                                dataSource={knowledgeBaseItems}
+                                targetKeys={targetKeys}
+                                onChange={onTransferChange}
+                                render={item => item.title}
+                                listStyle={{ width: 550, height: 400 }}
+                                showSearch
+                                loading={loadingKB}
+                                getPopupContainer={() => modalContentRef.current}
+                            />
+                        </Form.Item>
+                    </Form>
+                </div>
+            </Modal>
+
+            <Modal
+                title="Add to Knowledge Base"
+                open={isKbModalVisible}
+                onCancel={handleKbCancel}
+                onOk={() => kbForm.submit()}
+                okText="Add Item"
+                destroyOnClose
+            >
+                <Form form={kbForm} layout="vertical" onFinish={handleKbSave}>
+                    <Form.Item
+                        name="category"
+                        label="Category"
+                        rules={[{ required: true, message: 'Please select or create a category!' }]}
+                    >
+                        {/* 3. Заменяем Select на AutoComplete */}
+                        <AutoComplete
+                            options={existingCategoryOptions}
+                            style={{ width: '100%' }}
+                            placeholder="Select or type a new category"
+                            filterOption={(inputValue, option) =>
+                                option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                            }
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        name="item"
+                        label="Item Text"
+                        rules={[{ required: true, message: 'Please enter the item text!'}]}
+                    >
+                        <Input.TextArea rows={4} />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </Layout>
     );
 }
