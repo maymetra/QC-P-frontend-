@@ -8,8 +8,7 @@ import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import AddProjectForm from '../components/AddProjectForm';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../services/api'; // Импортируем наш API клиент
-import { mockUsers } from '../services/mockData';
+import apiClient from '../services/api';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -22,24 +21,21 @@ export default function ProjectsListPage() {
     const [form] = Form.useForm();
 
     const [projects, setProjects] = useState([]);
-    const [templates, setTemplates] = useState([]); // Это состояние остается
+    const [managers, setManagers] = useState([]);
+    const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
+
     const handleDelete = async (projectId) => {
         try {
             await apiClient.delete(`/projects/${projectId}`);
             message.success(t('projects.deleteSuccess', { defaultValue: 'Project deleted successfully' }));
-            fetchProjects(); // Обновляем список проектов
+            fetchProjects();
         } catch (error) {
             console.error("Failed to delete project", error);
             message.error(t('projects.deleteError', { defaultValue: 'Failed to delete project' }));
         }
     };
-
-    // Получаем список менеджеров по-старому, пока у нас нет для этого эндпоинта
-    const managers = useMemo(() =>
-            Object.values(mockUsers).filter(u => u.role === 'manager').map(m => m.name)
-        , []);
 
     const fetchProjects = async () => {
         setLoading(true);
@@ -56,9 +52,8 @@ export default function ProjectsListPage() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            fetchProjects(); // Загружаем проекты
+            fetchProjects();
 
-            // Загружаем шаблоны с API
             try {
                 const templatesResponse = await apiClient.get('/templates/');
                 setTemplates(templatesResponse.data);
@@ -66,16 +61,26 @@ export default function ProjectsListPage() {
                 console.error("Failed to fetch templates", error);
                 message.error("Failed to load templates.");
             }
+
+            // Загружаем список менеджеров
+            if (user?.role === 'admin' || user?.role === 'auditor') {
+                try {
+                    const managersResponse = await apiClient.get('/users/managers');
+                    setManagers(managersResponse.data.map(m => m.name));
+                } catch (error) {
+                    console.error("Failed to fetch managers", error);
+                    message.error("Failed to load managers list.");
+                }
+            }
         };
 
         fetchInitialData();
-    }, [user]); // Зависимость user остается
+    }, [user]);
 
     const activeProjects = useMemo(() => {
         return projects.filter(p => p.status !== 'finished');
     }, [projects]);
 
-    // Логика фильтрации остается без изменений
     const [filters, setFilters] = useState({ q: '', kunde: 'all', status: 'all' });
     const kundeOptions = useMemo(() => {
         const set = new Set(activeProjects.map(p => p.kunde).filter(Boolean));
@@ -99,14 +104,12 @@ export default function ProjectsListPage() {
     };
 
     const handleCreate = async (values) => {
-        // Форматируем дату, если она есть
         const payload = {
             ...values,
             basePlannedDate: values.basePlannedDate ? values.basePlannedDate.format('YYYY-MM-DD') : null,
         };
 
         try {
-            // Отправляем payload вместо values
             await apiClient.post('/projects/', payload);
             message.success(t('projects.createSuccess', { defaultValue: 'Project created successfully!' }));
             setIsModalVisible(false);
@@ -144,7 +147,6 @@ export default function ProjectsListPage() {
                         )}
                     </Flex>
 
-                    {/* Фильтры остаются без изменений */}
                     <Flex wrap="wrap" gap="small" className="!mb-4">
                         <Input allowClear placeholder={t('projects.filters.search')} value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} style={{ maxWidth: 240 }}/>
                         <Select value={filters.kunde} onChange={v => setFilters(f => ({ ...f, kunde: v }))} style={{ width: 200 }}>
@@ -159,7 +161,7 @@ export default function ProjectsListPage() {
                     </Flex>
 
                     <List
-                        loading={loading} // Добавляем индикатор загрузки
+                        loading={loading}
                         itemLayout="vertical"
                         dataSource={filtered}
                         rowKey={(item) => item.id}
@@ -170,13 +172,13 @@ export default function ProjectsListPage() {
                                 actions={[
                                     <Tag key="kunde">{item.kunde || '—'}</Tag>,
                                     <Tag key="status" color={item.status === 'in_progress' ? 'geekblue' : 'gold'}>{t(`projects.status.${item.status}`, { defaultValue: item.status })}</Tag>,
-                                    user.role === 'admin' && ( // Показываем кнопку только админам
+                                    user.role === 'admin' && (
                                         <Popconfirm
                                             key="delete"
                                             title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
                                             description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
                                             onConfirm={(e) => {
-                                                e.stopPropagation(); // Останавливаем клик, чтобы не перейти на страницу проекта
+                                                e.stopPropagation();
                                                 handleDelete(item.id);
                                             }}
                                             onCancel={(e) => e.stopPropagation()}
@@ -187,7 +189,7 @@ export default function ProjectsListPage() {
                                                 danger
                                                 icon={<DeleteOutlined />}
                                                 size="small"
-                                                onClick={(e) => e.stopPropagation()} // Останавливаем клик и здесь
+                                                onClick={(e) => e.stopPropagation()}
                                             />
                                         </Popconfirm>
                                     )
