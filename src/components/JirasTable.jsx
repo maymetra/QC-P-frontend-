@@ -9,10 +9,10 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/api';
 import dayjs from 'dayjs';
+import DOMPurify from 'dompurify';
 
 const { Option } = Select;
 
-// Утилита для скачивания, чтобы не засорять компонент
 const downloadFile = (blob, filename) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -34,7 +34,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     const isAuditor = role === 'admin' || role === 'auditor';
     const isManager = role === 'manager';
 
-    // Состояния
     const [addOpen, setAddOpen] = useState(false);
     const [addForm] = Form.useForm();
     const [addMode, setAddMode] = useState('new');
@@ -135,7 +134,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
-    // --- ЛОГИКА ЗАГРУЗКИ И СКАЧИВАНИЯ ФАЙЛОВ ---
     const handleCustomRequest = async ({ file, onSuccess, onError, onProgress }) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -160,12 +158,11 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         }
     };
 
-    // НОВАЯ ФУНКЦИЯ ДЛЯ СКАЧИВАНИЯ
     const handleDownload = async (record, file) => {
         try {
             const response = await apiClient.get(
                 `/files/${record.project_id}/${record.id}/${file.file_path}`,
-                { responseType: 'blob' } // Важно: получаем ответ как бинарные данные
+                { responseType: 'blob' }
             );
             downloadFile(response.data, file.name);
         } catch (error) {
@@ -227,7 +224,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
     }, [selectedCategory, knowledgeBase]);
 
     let columns = [
-        { title: t('table.pruefungsgegenstand'), dataIndex: 'item', sorter: (a, b) => (a.item || '').localeCompare(b.item || '') },
+        { title: t('table.pruefungsgegenstand'), dataIndex: 'item', sorter: (a, b) => (a.item || '').localeCompare(b.item || ''), render: (text) => <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} /> },
         {
             title: t('table.massnahme'), dataIndex: 'action',
             render: (text, record) => (isExporting ? text : <Space><span>{text}</span>{isManager && <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)} />}</Space>)
@@ -283,7 +280,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
                 const hasAttachments = record.attachments && record.attachments.length > 0;
                 const content = (
                     <div>
-                        {text && <span>{text}</span>}
+                        {text && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} />}
                         {hasAttachments && (
                             <List size="small" dataSource={record.attachments} renderItem={(file) => (
                                 <List.Item style={{padding: '4px 0'}}>

@@ -9,39 +9,6 @@
 export const PROJECT_STATUSES = ['in_progress', 'finished', 'on_hold'];
 
 /* =========================
- * Пользователи (мок-логины)
- * ========================= */
-export const mockUsers = {
-    // Администратор
-    admin: {
-        username: 'aiamashev',
-        password: 'password',
-        role: 'admin',
-        name: 'Artem Iamashev',
-    },
-    // Аудитор
-    auditor: {
-        username: 'lsow',
-        password: 'password',
-        role: 'auditor',
-        name: 'Lamine Sow',
-    },
-    // Менеджеры проектов
-    pm1: {
-        username: 'pm1',
-        password: 'password',
-        role: 'manager',
-        name: 'Maria Mustermann',
-    },
-    pm2: {
-        username: 'pm2',
-        password: 'password',
-        role: 'manager',
-        name: 'Max Mustermann',
-    },
-};
-
-/* =========================
  * Проекты (мок-данные)
  * Поля: id, name, kunde, manager, status
  * ========================= */
@@ -157,7 +124,6 @@ export function createProject(values) {
         status,
     };
 
-    // добавляем в начало, чтобы «новые» были сверху
     mockProjects.unshift(project);
     return project;
 }
@@ -174,7 +140,6 @@ export function updateProject(id, patch = {}) {
 
     const next = { ...mockProjects[i], ...patch };
     if (next.status && !PROJECT_STATUSES.includes(next.status)) {
-        // если подали неизвестный статус — откатываем к предыдущему
         next.status = mockProjects[i].status;
     }
     mockProjects[i] = next;
@@ -198,7 +163,7 @@ export function deleteProject(id) {
  * ========================= */
 
 const GLOBAL_LOG_KEY = 'globalActivityLog';
-const MAX_LOG_ENTRIES = 20; // Храним последние 20 записей
+const MAX_LOG_ENTRIES = 20;
 
 /**
  * Записывает событие в глобальный лог в localStorage.
@@ -209,10 +174,8 @@ export function logGlobalEvent(event) {
         const existingLogRaw = localStorage.getItem(GLOBAL_LOG_KEY);
         const existingLog = existingLogRaw ? JSON.parse(existingLogRaw) : [];
 
-        // Добавляем новое событие в начало
         const newLog = [event, ...existingLog];
 
-        // Ограничиваем размер лога
         if (newLog.length > MAX_LOG_ENTRIES) {
             newLog.length = MAX_LOG_ENTRIES;
         }
@@ -236,12 +199,6 @@ export function getGlobalEvents() {
         return [];
     }
 }
-
-// ... (существующий код файла mockData.js) ...
-
-/* =========================
- * Управление шаблонами (Templates)
- * ========================= */
 
 const TEMPLATES_KEY = 'qc-templates';
 
@@ -268,10 +225,8 @@ export function saveTemplate(name, items) {
     const existingIndex = templates.findIndex(t => t.name === name);
 
     if (existingIndex > -1) {
-        // Обновляем существующий
         templates[existingIndex].items = items;
     } else {
-        // Добавляем новый
         templates.push({ name, items });
     }
     localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
