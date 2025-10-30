@@ -8,4 +8,14 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  // ▼▼▼ ДОБАВЬТЕ ЭТОТ БЛОК ▼▼▼
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+  // ▲▲▲ КОНЕЦ БЛОКА ▲▲▲
 })
