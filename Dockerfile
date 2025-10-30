@@ -2,16 +2,9 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 
-# Копируем package.json и package-lock.json
 COPY package.json package-lock.json ./
-
-# Копируем УЖЕ ГОТОВЫЕ зависимости
-COPY node_modules ./node_modules
-
-# Копируем остальной код
+RUN npm install
 COPY . .
-
-# Собираем приложение
 RUN npm run build
 
 # --- ЭТАП РАБОТЫ (FINAL STAGE) ---
