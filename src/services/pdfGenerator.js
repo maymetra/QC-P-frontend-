@@ -59,8 +59,9 @@ export const exportToPDF = async (project, tableData, user, t) => {
             ],
         ],
         body: tableData.map(row => [
-            row.item, row.action, row.author, row.reviewer, row.plannedDate,
-            row.closedDate, t(`itemStatus.${row.status}`, { defaultValue: row.status }),
+            row.item, row.action, row.author, row.reviewer, row.planned_date,
+            row.closed_date,
+            t(`itemStatus.${row.status}`, { defaultValue: row.status }),
         ]),
         theme: 'striped',
         headStyles: { fillColor: [34, 51, 102], textColor: [255, 255, 255] },
