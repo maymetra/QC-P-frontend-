@@ -8,7 +8,7 @@ import NavigationTab from '../components/NavigationTab';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { useNavigate, Navigate } from 'react-router-dom';
 import apiClient from '../services/api';
-import { Pie, Treemap } from '@ant-design/charts';
+import { Pie } from '@ant-design/charts';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -42,6 +42,7 @@ export default function DashboardPage() {
                 // --- ИЗМЕНЕНИЕ ЗДЕСЬ: Безопасное обновление state ---
                 // Мы сохраняем дефолтную структуру, на случай если API не вернет
                 // какое-то из полей (например, status_counts)
+                console.log('Dashboard statistics response:', response.data);
                 setStats(prevStats => ({
                     ...prevStats,
                     ...response.data
@@ -58,46 +59,36 @@ export default function DashboardPage() {
     }, []);
 
 
-    // Преобразуем объект status_counts в массив, понятный для диаграмм
-    const chartData = Object.keys(stats.status_counts || {}) // <-- ДОБАВЛЕНА ПРОВЕРКА || {}
-        .map(statusKey => ({
-            type: t(`itemStatus.${statusKey}`, { defaultValue: statusKey }),
-            value: stats.status_counts[statusKey],
-        }))
-        .filter(item => item.value > 0);
+// Преобразуем объект status_counts в массив, понятный для диаграмм
+    const chartData = Object.entries(stats.status_counts || {})
+        .map(([statusKey, rawValue]) => {
+            const value = Number(rawValue) || 0;
 
-    // Конфигурация для круговой диаграммы
+            return {
+                type: t(`itemStatus.${statusKey}`, { defaultValue: statusKey }), // подпись
+                value,                                                           // число тикетов
+            };
+        })
+        .filter((item) => item.value > 0);
+
+// Конфигурация для круговой диаграммы
     const pieConfig = {
         data: chartData,
         angleField: 'value',
         colorField: 'type',
-        radius: 0.8,
+        radius: 0.9,
+        innerRadius: 0.5,      // обычный "пирог", не донат
+        autoFit: true,
+        height: 260,         // явная высота, чтобы точно было место
         label: {
-            type: 'spider',
-            labelHeight: 28,
-            content: '{name}\n{percentage}',
+            type: 'inner',
+            offset: '-30%',
+            content: '{value}',  // просто число внутри сегмента
+            style: {
+                fontSize: 14,
+            },
         },
-        interactions: [{ type: 'element-active' }],
-        legend: {
-            position: 'bottom',
-        }
-    };
-
-    // Конфигурация для квадратной диаграммы (Treemap)
-    const treemapConfig = {
-        data: {
-            name: 'root',
-            children: chartData,
-        },
-        valueField: 'value',
-        colorField: 'type',
-        legend: false,
-        tooltip: {
-            formatter: (datum) => ({
-                name: datum.type,
-                value: `${datum.value} ${t('tickets', {defaultValue: 'tickets'})}`,
-            }),
-        }
+        legend: { position: 'bottom' },
     };
 
     return (
@@ -147,20 +138,17 @@ export default function DashboardPage() {
                             <Card title={t('dashboard.charts.pieTitle', {defaultValue: 'Ticket Status Overview'})} loading={loading}>
                                 {/* --- ИЗМЕНЕНИЕ ЗДЕСЬ --- */}
                                 {chartData.length > 0 ? (
-                                    <Pie {...pieConfig} />
+                                    <div style={{ width: '100%', height: 260 }}>
+                                        <Pie {...pieConfig} />
+                                    </div>
                                 ) : (
-                                    !loading && <p>{t('dashboard.charts.noData', {defaultValue: 'No status data available.'})}</p>
-                                )}
-                                {/* --- КОНЕЦ ИЗМЕНЕНИЯ --- */}
-                            </Card>
-                        </Col>
-                        <Col xs={24} lg={12}>
-                            <Card title={t('dashboard.charts.treeTitle', {defaultValue: 'Status Proportions'})} loading={loading}>
-                                {/* --- ИЗМЕНЕНИЕ ЗДЕСЬ --- */}
-                                {chartData.length > 0 ? (
-                                    <Treemap {...treemapConfig} />
-                                ) : (
-                                    !loading && <p>{t('dashboard.charts.noData', {defaultValue: 'No status data available.'})}</p>
+                                    !loading && (
+                                        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                                            {t('dashboard.charts.noData', {
+                                                defaultValue: 'No status data available.',
+                                            })}
+                                        </div>
+                                    )
                                 )}
                                 {/* --- КОНЕЦ ИЗМЕНЕНИЯ --- */}
                             </Card>
