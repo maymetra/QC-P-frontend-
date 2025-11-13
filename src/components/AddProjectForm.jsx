@@ -1,6 +1,6 @@
 // src/components/AddProjectForm.jsx
 import React from 'react';
-import { Form, Input, Select, DatePicker } from 'antd'; // <-- Добавлен DatePicker
+import { Form, Input, Select, DatePicker, AutoComplete } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;
@@ -8,7 +8,10 @@ const { Option } = Select;
 export default function AddProjectForm({ form, onFinish, initialValues, managers = [], templates = [] }) {
     const { t } = useTranslation();
 
-    const selectedTemplate = Form.useWatch('template', form); // Следим за изменением выбранного шаблона
+    const selectedTemplate = Form.useWatch('template', form);
+
+    // Преобразуем список менеджеров для AutoComplete
+    const managerOptions = managers.map(name => ({ value: name }));
 
     return (
         <Form
@@ -27,8 +30,7 @@ export default function AddProjectForm({ form, onFinish, initialValues, managers
                 </Select>
             </Form.Item>
 
-            {/* <-- НОВОЕ ПОЛЕ: Базовая дата для шаблона --> */}
-            {selectedTemplate && ( // Показываем это поле только если выбран шаблон
+            {selectedTemplate && (
                 <Form.Item
                     name="basePlannedDate"
                     label={t('projects.form.basePlannedDate', {defaultValue: 'Base Planned Date for Template Items'})}
@@ -54,31 +56,22 @@ export default function AddProjectForm({ form, onFinish, initialValues, managers
                 <Input />
             </Form.Item>
 
+            {/* Используем AutoComplete, чтобы можно было ввести новое имя */}
             <Form.Item
                 name="manager"
                 label={t('projects.form.manager')}
                 rules={[{ required: true, message: t('projects.form.managerMsg') }]}
             >
-                <Select showSearch placeholder={t('projects.form.managerMsg')}>
-                    {managers.map(name => (
-                        <Option key={name} value={name}>
-                            {name}
-                        </Option>
-                    ))}
-                </Select>
+                <AutoComplete
+                    options={managerOptions}
+                    placeholder={t('projects.form.managerMsg')}
+                    filterOption={(inputValue, option) =>
+                        option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                    }
+                />
             </Form.Item>
 
-            <Form.Item
-                name="status"
-                label={t('projects.form.status')}
-                rules={[{ required: true, message: t('projects.form.statusMsg') }]}
-            >
-                <Select placeholder={t('projects.form.status')}>
-                    <Option value="in_progress">{t('projects.status.in_progress')}</Option>
-                    <Option value="finished">{t('projects.status.finished')}</Option>
-                    <Option value="on_hold">{t('projects.status.on_hold')}</Option>
-                </Select>
-            </Form.Item>
+            {/* Поле Status удалено, теперь оно выставляется автоматически на бэкенде */}
         </Form>
     );
 }
