@@ -6,7 +6,7 @@ import {
     UserOutlined,
     SettingOutlined,
     InboxOutlined,
-    DashboardOutlined,
+    DashboardOutlined, SnippetsOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +29,7 @@ export default function NavigationTab({ activeKey }) {
         });
     }
 
+    // --- ИЗМЕНЕН ПОРЯДОК И КЛЮЧИ ---
     items.push(
         {
             key: '/projects',
@@ -42,6 +43,15 @@ export default function NavigationTab({ activeKey }) {
         }
     );
 
+    if (isAuditorOrAdmin) {
+        items.push({
+            key: '/templates',
+            icon: <SnippetsOutlined />,
+            label: t('menu.templates')
+        });
+    }
+    // ---------------------------------
+
     if (user && user.role === 'admin') {
         items.push({
             key: '/users',
@@ -50,11 +60,7 @@ export default function NavigationTab({ activeKey }) {
         });
     }
 
-    items.push({
-        key: '/settings',
-        icon: <SettingOutlined />,
-        label: t('menu.settings')
-    });
+    // Удалена старая вкладка "Settings" отсюда
 
     const handleClick = ({ key }) => navigate(key);
 

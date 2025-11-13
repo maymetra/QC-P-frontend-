@@ -1,5 +1,7 @@
-// src/pages/SettingsPage.jsx
+// src/pages/TemplatesPage.jsx
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message, AutoComplete } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
@@ -11,13 +13,17 @@ import apiClient from '../services/api';
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
-export default function SettingsPage() {
+export default function TemplatesPage() {
     const { user, logout } = useAuth();
     const { t } = useTranslation();
     const [templateForm] = Form.useForm();
-    const [kbForm] = Form.useForm();
+    const [kbForm] = Form.useForm(); // <-- ВОССТАНОВЛЕНО
     const modalContentRef = useRef(null);
-
+    const isAuthorized = user?.role === 'admin' || user?.role === 'auditor';
+    if (!isAuthorized) {
+        // Если роль не совпадает, перенаправляем на главную страницу проектов
+        return <Navigate to="/projects" replace />;
+    }
     // Состояния для Шаблонов
     const [templates, setTemplates] = useState([]);
     const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -28,7 +34,7 @@ export default function SettingsPage() {
     // Состояния для Базы Знаний
     const [knowledgeBaseItems, setKnowledgeBaseItems] = useState([]);
     const [loadingKB, setLoadingKB] = useState(false);
-    const [isKbModalVisible, setIsKbModalVisible] = useState(false);
+    const [isKbModalVisible, setIsKbModalVisible] = useState(false); // <-- ВОССТАНОВЛЕНО
 
     const fetchTemplates = async () => {
         setLoadingTemplates(true);
@@ -123,7 +129,7 @@ export default function SettingsPage() {
         setTargetKeys(newTargetKeys);
     };
 
-    // --- Логика для модалки БАЗЫ ЗНАНИЙ ---
+    // --- Логика для модалки БАЗЫ ЗНАНИЙ (ВОССТАНОВЛЕНО) ---
     const openKbModal = () => {
         kbForm.resetFields();
         setIsKbModalVisible(true);
@@ -138,7 +144,7 @@ export default function SettingsPage() {
             await apiClient.post('/knowledge-base/', values);
             message.success('New item added to Knowledge Base!');
             handleKbCancel();
-            fetchKnowledgeBase();
+            fetchKnowledgeBase(); // Обновляем список КБ
         } catch (error) {
             console.error("Failed to add KB item", error);
             message.error(error.response?.data?.detail || "Failed to add item.");
@@ -186,6 +192,7 @@ export default function SettingsPage() {
         </>
     );
 
+    // --- ФУНКЦИЯ ВОССТАНОВЛЕНА ---
     const renderKnowledgeBaseManager = () => (
         <>
             <Flex justify="space-between" align="center">
@@ -198,19 +205,9 @@ export default function SettingsPage() {
         </>
     );
 
-    const renderPersonalSettings = () => (
-        <>
-            <Title level={3}>{t('settingsPage.personal.title')}</Title>
-            <Paragraph>{t('settingsPage.personal.description')}</Paragraph>
-        </>
-    );
-
-    const renderGlobalSettings = () => (
-        <>
-            <Title level={3}>{t('settingsPage.global.title')}</Title>
-            <Paragraph>{t('settingsPage.global.description')}</Paragraph>
-        </>
-    );
+    // --- ЭТИ ФУНКЦИИ УДАЛЕНЫ ---
+    // const renderPersonalSettings = () => (...)
+    // const renderGlobalSettings = () => (...)
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -229,7 +226,7 @@ export default function SettingsPage() {
 
             <Layout>
                 <Sider width={220} className="bg-white shadow-sm">
-                    <NavigationTab activeKey="/settings" />
+                    <NavigationTab activeKey="/templates" />
                 </Sider>
 
                 <Content className="p-6 bg-gray-50">
@@ -238,16 +235,13 @@ export default function SettingsPage() {
                     {(user.role === 'admin' || user.role === 'auditor') && (
                         <>
                             {renderTemplateManager()}
-                            <Divider />
-                            {renderKnowledgeBaseManager()}
-                            <Divider />
+                            <Divider /> {/* <-- ВОССТАНОВЛЕНО */}
+                            {renderKnowledgeBaseManager()} {/* <-- ВОССТАНОВЛЕНО */}
                         </>
                     )}
 
-                    {(user.role === 'admin' || user.role === 'auditor' || user.role === 'manager') && renderPersonalSettings()}
+                    {/* --- СЕКЦИИ УДАЛЕНЫ --- */}
 
-                    {user.role === 'admin' && <Divider />}
-                    {user.role === 'admin' && renderGlobalSettings()}
                 </Content>
             </Layout>
 
@@ -284,6 +278,7 @@ export default function SettingsPage() {
                 </div>
             </Modal>
 
+            {/* --- МОДАЛЬНОЕ ОКНО КБ ВОССТАНОВЛЕНО --- */}
             <Modal
                 title={t('settingsPage.kb.modalTitle')}
                 open={isKbModalVisible}

@@ -5,7 +5,7 @@ import ProjectsListPage from './pages/ProjectsListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import UsersPage from './pages/UsersPage';
-import SettingsPage from './pages/SettingsPage';
+import TemplatesPage from './pages/TemplatesPage'; // <-- ИЗМЕНЕНО
 import ArchivedProjectsPage from './pages/ArchivedProjectsPage';
 import DashboardPage from './pages/DashboardPage';
 
@@ -23,7 +23,7 @@ export default function App() {
                 <Route path="/projects/archive" element={<ArchivedProjectsPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
                 <Route path="/users" element={<UsersPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/templates" element={<TemplatesPage />} /> {/* <-- ИЗМЕНЕНО */}
             </Route>
 
             {/* Редирект с главной (остается прежним) */}

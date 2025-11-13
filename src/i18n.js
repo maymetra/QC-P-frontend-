@@ -13,7 +13,7 @@ i18n
                     menu: {
                         projects: 'Projects',
                         users: 'Users',
-                        settings: 'Settings',
+                        templates: 'Templates',
                         archive: 'Archive',
                     },
                     /* ---------- TABLE HEADERS ---------- */
@@ -114,7 +114,7 @@ i18n
                     },
                     /* ---------- SETTINGS PAGE ---------- */
                     settingsPage: {
-                        title: 'Settings',
+                        title: 'Templates',
                         personal: {
                             title: 'Personal Settings',
                             description: 'Here you can change your password and notification preferences.',
@@ -155,7 +155,7 @@ i18n
                     menu: {
                         projects: 'Projekte',
                         users: 'Benutzer',
-                        settings: 'Einstellungen',
+                        templates: 'Vorlagen',
                         archive: 'Archiv',
                     },
                     /* ---------- TABLE HEADERS ---------- */
@@ -255,7 +255,7 @@ i18n
                     },
                     /* ---------- SETTINGS PAGE ---------- */
                     settingsPage: {
-                        title: 'Einstellungen',
+                        title: 'Vorlagen',
                         personal: {
                             title: 'Persönliche Einstellungen',
                             description: 'Hier können Sie Ihr Passwort und Ihre Benachrichtigungseinstellungen ändern.',
