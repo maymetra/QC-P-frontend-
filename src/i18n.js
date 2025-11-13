@@ -28,6 +28,14 @@ i18n
                         status: 'Status',
                         bemerkungen: 'Remarks',
                     },
+                    /* ---------- DASHBOARD ---------- */
+                    dashboard: {
+                        charts: {
+                            pieTitle: 'Ticket Status Overview',
+                            treeTitle: 'Status Proportions',
+                            noData: 'No status data available.'
+                        }
+                    },
                     /* ---------- ITEM STATUSES ---------- */
                     itemStatus: {
                         approved: 'Approved',
@@ -177,6 +185,14 @@ i18n
                         pending: 'Wartet auf Genehmigung',
                         open: 'Offen',
                         overdue: 'Überfällige Posten',
+                    },
+                    /* ---------- DASHBOARD ---------- */
+                    dashboard: {
+                        charts: {
+                            pieTitle: 'Ticket-Statusübersicht',
+                            treeTitle: 'Status-Proportionen',
+                            noData: 'Keine Statusdaten verfügbar.'
+                        }
                     },
                     /* ---------- FILTER LABELS ---------- */
                     filter: {

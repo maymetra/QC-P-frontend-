@@ -8,6 +8,7 @@ import NavigationTab from '../components/NavigationTab';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { useNavigate, Navigate } from 'react-router-dom';
 import apiClient from '../services/api';
+import { Pie, Treemap } from '@ant-design/charts';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -22,12 +23,12 @@ export default function DashboardPage() {
         return <Navigate to="/projects" replace />;
     }
 
-    // 1. Инициализируем state с дефолтной структурой, чтобы избежать ошибок
     const [stats, setStats] = useState({
         pending_items: [],
         overdue_items: [],
         pending_items_count: 0,
         overdue_items_count: 0,
+        status_counts: { open: 0, approved: 0, rejected: 0, pending: 0 },
     });
     const [loading, setLoading] = useState(true);
     const [isPendingModalVisible, setIsPendingModalVisible] = useState(false);
@@ -38,7 +39,13 @@ export default function DashboardPage() {
             setLoading(true);
             try {
                 const response = await apiClient.get('/dashboard/statistics');
-                setStats(response.data);
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ: Безопасное обновление state ---
+                // Мы сохраняем дефолтную структуру, на случай если API не вернет
+                // какое-то из полей (например, status_counts)
+                setStats(prevStats => ({
+                    ...prevStats,
+                    ...response.data
+                }));
             } catch (error) {
                 console.error("Failed to fetch dashboard stats", error);
                 message.error("Failed to load dashboard statistics.");
@@ -50,7 +57,48 @@ export default function DashboardPage() {
         fetchStats();
     }, []);
 
-    // 2. Убираем полноэкранный Spin. Компонент теперь всегда рендерит основной Layout.
+
+    // Преобразуем объект status_counts в массив, понятный для диаграмм
+    const chartData = Object.keys(stats.status_counts || {}) // <-- ДОБАВЛЕНА ПРОВЕРКА || {}
+        .map(statusKey => ({
+            type: t(`itemStatus.${statusKey}`, { defaultValue: statusKey }),
+            value: stats.status_counts[statusKey],
+        }))
+        .filter(item => item.value > 0);
+
+    // Конфигурация для круговой диаграммы
+    const pieConfig = {
+        data: chartData,
+        angleField: 'value',
+        colorField: 'type',
+        radius: 0.8,
+        label: {
+            type: 'spider',
+            labelHeight: 28,
+            content: '{name}\n{percentage}',
+        },
+        interactions: [{ type: 'element-active' }],
+        legend: {
+            position: 'bottom',
+        }
+    };
+
+    // Конфигурация для квадратной диаграммы (Treemap)
+    const treemapConfig = {
+        data: {
+            name: 'root',
+            children: chartData,
+        },
+        valueField: 'value',
+        colorField: 'type',
+        legend: false,
+        tooltip: {
+            formatter: (datum) => ({
+                name: datum.type,
+                value: `${datum.value} ${t('tickets', {defaultValue: 'tickets'})}`,
+            }),
+        }
+    };
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -73,7 +121,6 @@ export default function DashboardPage() {
                     <Row gutter={[16, 16]}>
                         <Col xs={24} sm={12}>
                             <Card hoverable onClick={() => !loading && stats.pending_items_count > 0 && setIsPendingModalVisible(true)}>
-                                {/* 3. Добавляем пропс `loading` прямо в компонент Statistic */}
                                 <Statistic
                                     title={t('itemStatus.pending')}
                                     value={stats.pending_items_count}
@@ -84,7 +131,6 @@ export default function DashboardPage() {
                         </Col>
                         <Col xs={24} sm={12}>
                             <Card hoverable onClick={() => !loading && stats.overdue_items_count > 0 && setIsOverdueModalVisible(true)}>
-                                {/* 3. Добавляем пропс `loading` и сюда */}
                                 <Statistic
                                     title={t('itemStatus.overdue')}
                                     value={stats.overdue_items_count}
@@ -95,6 +141,32 @@ export default function DashboardPage() {
                             </Card>
                         </Col>
                     </Row>
+
+                    <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+                        <Col xs={24} lg={12}>
+                            <Card title={t('dashboard.charts.pieTitle', {defaultValue: 'Ticket Status Overview'})} loading={loading}>
+                                {/* --- ИЗМЕНЕНИЕ ЗДЕСЬ --- */}
+                                {chartData.length > 0 ? (
+                                    <Pie {...pieConfig} />
+                                ) : (
+                                    !loading && <p>{t('dashboard.charts.noData', {defaultValue: 'No status data available.'})}</p>
+                                )}
+                                {/* --- КОНЕЦ ИЗМЕНЕНИЯ --- */}
+                            </Card>
+                        </Col>
+                        <Col xs={24} lg={12}>
+                            <Card title={t('dashboard.charts.treeTitle', {defaultValue: 'Status Proportions'})} loading={loading}>
+                                {/* --- ИЗМЕНЕНИЕ ЗДЕСЬ --- */}
+                                {chartData.length > 0 ? (
+                                    <Treemap {...treemapConfig} />
+                                ) : (
+                                    !loading && <p>{t('dashboard.charts.noData', {defaultValue: 'No status data available.'})}</p>
+                                )}
+                                {/* --- КОНЕЦ ИЗМЕНЕНИЯ --- */}
+                            </Card>
+                        </Col>
+                    </Row>
+
                 </Content>
             </Layout>
 
