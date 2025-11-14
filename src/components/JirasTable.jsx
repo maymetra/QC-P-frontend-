@@ -25,7 +25,6 @@ const downloadFile = (blob, filename) => {
 };
 
 
-// Меняем fetchItems на onItemsUpdate
 const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isExporting }, ref) => {
     const { t } = useTranslation();
     const { projectId } = useParams();
@@ -87,7 +86,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         try {
             await apiClient.post(`/projects/${projectId}/items`, payload);
             message.success(t('Item added successfully'));
-            onItemsUpdate(); // <-- Вызываем onItemsUpdate
+            onItemsUpdate();
             setAddOpen(false);
         } catch (error) {
             message.error(t('Failed to add item'));
@@ -98,21 +97,27 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         try {
             await apiClient.delete(`/projects/${projectId}/items/${itemId}`);
             message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
-            onItemsUpdate(); // <-- Вызываем onItemsUpdate
+            onItemsUpdate();
         } catch (error) {
             message.error(t('Failed to delete item'));
         }
     };
 
+    // ---
+    // ❗️❗️❗️ ИСПРАВЛЕНИЕ ЗДЕСЬ ❗️❗️❗️
+    // ---
     const onEditFinish = async (values) => {
+        // Мы отправляем ТОЛЬКО те данные, которые в этой форме.
+        // Мы не используем || null или || ""
         const payload = {
-            action: (values.action || '').trim(),
-            author: (values.author || '').trim() || currentUserName,
+            action: values.action,
+            author: values.author || currentUserName, // Автор по умолчанию
         };
+
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved', { defaultValue: 'Saved' }));
-            onItemsUpdate(); // <-- Вызываем onItemsUpdate
+            onItemsUpdate();
             setEditOpen(false);
         } catch (error) {
             message.error(t('Failed to save changes'));
@@ -123,11 +128,17 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         const payload = {
             status: newStatus,
             reviewer: isAuditor ? currentUserName : undefined,
-            closed_date: newStatus === 'approved' ? dayjs().format('YYYY-MM-DD') : (newStatus === 'open' || newStatus === 'rejected') ? null : undefined,
         };
+
+        if (newStatus === 'approved') {
+            payload.closed_date = dayjs().format('YYYY-MM-DD');
+        } else if (newStatus === 'open' || newStatus === 'rejected') {
+            payload.closed_date = null; // Явно сбрасываем дату
+        }
+
         try {
             await apiClient.put(`/projects/${projectId}/items/${itemId}`, payload);
-            onItemsUpdate(); // <-- Вызываем onItemsUpdate
+            onItemsUpdate();
         } catch (error) {
             message.error(t('Failed to change status'));
         }
@@ -171,26 +182,31 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     };
 
     const handleDocUpload = async (values) => {
+        // Отправляем только `documents`
         const payload = { documents: values.documents?.map(f => f.response || f) || [] };
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Documents updated.'));
-            onItemsUpdate(); // <-- Вызываем onItemsUpdate
+            onItemsUpdate();
             setDocUploadOpen(false);
         } catch (error) {
             message.error(t('Failed to update documents'));
         }
     };
 
+    // ---
+    // ❗️❗️❗️ И ИСПРАВЛЕНИЕ ЗДЕСЬ ❗️❗️❗️
+    // ---
     const onRemarksFinish = async (values) => {
+        // Мы отправляем ТОЛЬКО те данные, которые в этой форме.
         const payload = {
-            comment: values.comment || '',
+            comment: values.comment,
             attachments: values.attachments?.map(f => f.response || f) || [],
         };
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved'));
-            onItemsUpdate(); // <-- Вызываем onItemsUpdate
+            onItemsUpdate();
             setRemarksOpen(false);
         } catch (error) {
             message.error(t('Failed to save remarks'));
@@ -198,7 +214,13 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     };
 
     const openAdd = () => { addForm.resetFields(); setAddMode('new'); setSelectedCategory(null); setAddOpen(true); };
-    const openEdit = (record) => { setEditingItem(record); editForm.setFieldsValue(record); setEditOpen(true); };
+
+    // При открытии модалок - заполняем ВСЕ поля из `record`
+    const openEdit = (record) => {
+        setEditingItem(record);
+        editForm.setFieldsValue(record);
+        setEditOpen(true);
+    };
 
     const openDocUpload = (record) => {
         setEditingItem(record);
@@ -344,6 +366,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 </Form>
             </Modal>
 
+            {/* Модалка Measure (onEditFinish) */}
             <Modal title={t('Edit Measure', { defaultValue: 'Edit Measure' })} open={editOpen} onCancel={() => setEditOpen(false)} onOk={editForm.submit} okText={t('Save', { defaultValue: 'Save' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
                 <Form layout="vertical" form={editForm} onFinish={onEditFinish}>
                     <Form.Item name="action" label={t('table.massnahme')}><Input.TextArea rows={4} /></Form.Item>
@@ -361,6 +384,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 </Form>
             </Modal>
 
+            {/* Модалка Remarks (onRemarksFinish) */}
             <Modal title={t('Edit remarks')} open={remarksOpen} onCancel={() => setRemarksOpen(false)} onOk={() => remarksForm.submit()} okText={t('Save')} cancelText={t('common.cancel')} destroyOnClose>
                 <Form layout="vertical" form={remarksForm} onFinish={onRemarksFinish} preserve={false}>
                     <Form.Item name="comment" label={t('table.bemerkungen')}><Input.TextArea rows={4} /></Form.Item>
@@ -374,3 +398,5 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         </div>
     );
 });
+
+export default JirasTable;
