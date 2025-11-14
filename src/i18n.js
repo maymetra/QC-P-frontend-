@@ -8,13 +8,14 @@ i18n
         resources: {
             en: {
                 translation: {
-                    common: { cancel: 'Cancel', createOk: 'Create' },
+                    common: { cancel: 'Cancel', createOk: 'Create', locale: 'en-US' },
                     /* ---------- MENU ---------- */
                     menu: {
                         projects: 'Projects',
                         users: 'Users',
                         templates: 'Templates',
                         archive: 'Archive',
+                        dashboard: 'Dashboard',
                         profile: 'Profile',
                     },
                     /* ---------- TABLE HEADERS ---------- */
@@ -63,19 +64,10 @@ i18n
                         usernameMsg: 'Please input your Username!',
                         passwordMsg: 'Please input your Password!',
                         invalidCredentials: 'Invalid username or password',
-                        forgotModalTitle: 'Reset Password Request', // <-- NEW
-                        forgotDesc: 'Please enter your username. The administrator will be notified.', // <-- NEW
-                        submitRequest: 'Send Request', // <-- NEW
-                        requestSent: 'Request sent successfully', // <-- NEW
-                    },
-                    profile: {
-                        title: 'My Profile',
-                        name: 'Name',
-                        password: 'New Password',
-                        confirmPassword: 'Confirm Password',
-                        update: 'Update Profile',
-                        success: 'Profile updated successfully',
-                        mismatch: 'Passwords do not match!',
+                        forgotModalTitle: 'Reset Password Request',
+                        forgotDesc: 'Please enter your username. The administrator will be notified.',
+                        submitRequest: 'Send Request',
+                        requestSent: 'Request sent successfully',
                     },
                     /* ---------- GENERAL & PROJECTS ---------- */
                     logout: 'Logout',
@@ -113,7 +105,6 @@ i18n
                     /* ---------- USERS PAGE ---------- */
                     usersPage: {
                         title: 'User Management',
-                        resetRequested: 'Password reset requested!',
                         addUser: 'Add User',
                         table: { name: 'Name', username: 'Username', role: 'Role', action: 'Action', edit: 'Edit' },
                         addUserModal: {
@@ -133,9 +124,20 @@ i18n
                             cancel: 'Cancel',
                             create: 'Create',
                             save: 'Save'
-                        }
+                        },
+                        resetRequested: 'Password reset requested!',
                     },
-                    /* ---------- SETTINGS PAGE ---------- */
+                    /* ---------- PROFILE PAGE ---------- */
+                    profile: {
+                        title: 'My Profile',
+                        name: 'Name',
+                        password: 'New Password',
+                        confirmPassword: 'Confirm Password',
+                        update: 'Update Profile',
+                        success: 'Profile updated successfully',
+                        mismatch: 'Passwords do not match!',
+                    },
+                    /* ---------- TEMPLATES PAGE ---------- */
                     settingsPage: {
                         title: 'Templates',
                         personal: {
@@ -151,7 +153,7 @@ i18n
                             name: 'Template Name',
                             items: 'Inspection Items',
                             deleteConfirm: 'Delete this template?',
-                            select: 'Optional: Select a template to pre-fill items', // <-- Добавлено для формы проекта
+                            select: 'Optional: Select a template to pre-fill items',
                         },
                         global: {
                             title: 'Global Application Settings',
@@ -169,17 +171,29 @@ i18n
                             itemMsg: 'Please enter the item text!',
                         }
                     },
+                    // --- НОВАЯ СЕКЦИЯ ---
+                    historyEvent: {
+                        project_created: 'Project Created',
+                        project_status_updated: 'Project Status Updated',
+                        project_manager_updated: 'Manager Updated',
+                        item_added: 'Item Added',
+                        item_deleted: 'Item Deleted',
+                        item_status_updated: 'Item Status Updated',
+                        file_uploaded: 'File Uploaded'
+                    },
                 },
             },
             de: {
                 translation: {
-                    common: { cancel: 'Abbrechen', createOk: 'Erstellen' },
+                    common: { cancel: 'Abbrechen', createOk: 'Erstellen', locale: 'de-DE' },
                     /* ---------- MENU ---------- */
                     menu: {
                         projects: 'Projekte',
                         users: 'Benutzer',
                         templates: 'Vorlagen',
                         archive: 'Archiv',
+                        dashboard: 'Dashboard',
+                        profile: 'Profil',
                     },
                     /* ---------- TABLE HEADERS ---------- */
                     table: {
@@ -227,6 +241,10 @@ i18n
                         usernameMsg: 'Bitte Benutzernamen eingeben!',
                         passwordMsg: 'Bitte Passwort eingeben!',
                         invalidCredentials: 'Ungültiger Benutzername oder Passwort',
+                        forgotModalTitle: 'Passwort zurücksetzen',
+                        forgotDesc: 'Bitte geben Sie Ihren Benutzernamen ein. Der Administrator wird benachrichtigt.',
+                        submitRequest: 'Anfrage senden',
+                        requestSent: 'Anfrage erfolgreich gesendet',
                     },
                     /* ---------- GENERAL & PROJECTS ---------- */
                     logout: 'Abmelden',
@@ -282,9 +300,20 @@ i18n
                             cancel: 'Abbrechen',
                             create: 'Erstellen',
                             save: 'Speichern'
-                        }
+                        },
+                        resetRequested: 'Passwort-Reset angefordert!',
                     },
-                    /* ---------- SETTINGS PAGE ---------- */
+                    /* ---------- PROFILE PAGE ---------- */
+                    profile: {
+                        title: 'Mein Profil',
+                        name: 'Name',
+                        password: 'Neues Passwort',
+                        confirmPassword: 'Passwort bestätigen',
+                        update: 'Profil aktualisieren',
+                        success: 'Profil erfolgreich aktualisiert',
+                        mismatch: 'Passwörter stimmen nicht überein!',
+                    },
+                    /* ---------- TEMPLATES PAGE ---------- */
                     settingsPage: {
                         title: 'Vorlagen',
                         personal: {
@@ -300,7 +329,7 @@ i18n
                             name: 'Vorlagenname',
                             items: 'Prüfpositionen',
                             deleteConfirm: 'Diese Vorlage löschen?',
-                            select: 'Optional: Vorlage zur Vorausfüllung der Positionen auswählen', // <-- Добавлено
+                            select: 'Optional: Vorlage zur Vorausfüllung der Positionen auswählen',
                         },
                         global: {
                             title: 'Globale Anwendungseinstellungen',
@@ -317,6 +346,16 @@ i18n
                             itemLabel: 'Eintragstext',
                             itemMsg: 'Bitte geben Sie den Text des Eintrags ein!',
                         }
+                    },
+                    // --- НОВАЯ СЕКЦИЯ ---
+                    historyEvent: {
+                        project_created: 'Projekt erstellt',
+                        project_status_updated: 'Projektstatus geändert',
+                        project_manager_updated: 'Manager geändert',
+                        item_added: 'Eintrag hinzugefügt',
+                        item_deleted: 'Eintrag gelöscht',
+                        item_status_updated: 'Eintrag-Status geändert',
+                        file_uploaded: 'Datei hochgeladen'
                     },
                 },
             },

@@ -25,6 +25,7 @@ const downloadFile = (blob, filename) => {
 };
 
 
+// Меняем fetchItems на onItemsUpdate
 const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isExporting }, ref) => {
     const { t } = useTranslation();
     const { projectId } = useParams();
@@ -103,16 +104,22 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         }
     };
 
-    // ---
-    // ❗️❗️❗️ ИСПРАВЛЕНИЕ ЗДЕСЬ ❗️❗️❗️
-    // ---
     const onEditFinish = async (values) => {
-        // Мы отправляем ТОЛЬКО те данные, которые в этой форме.
-        // Мы не используем || null или || ""
-        const payload = {
-            action: values.action,
-            author: values.author || currentUserName, // Автор по умолчанию
-        };
+        const payload = {};
+        const action = values.action?.trim();
+        const author = values.author?.trim();
+
+        if (action) {
+            payload.action = action;
+        } else {
+            payload.action = null; // Явно отправляем null, если поле пустое
+        }
+
+        if (author) {
+            payload.author = author;
+        } else {
+            payload.author = currentUserName; // Автор по умолчанию
+        }
 
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
@@ -133,7 +140,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         if (newStatus === 'approved') {
             payload.closed_date = dayjs().format('YYYY-MM-DD');
         } else if (newStatus === 'open' || newStatus === 'rejected') {
-            payload.closed_date = null; // Явно сбрасываем дату
+            payload.closed_date = null;
         }
 
         try {
@@ -182,7 +189,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     };
 
     const handleDocUpload = async (values) => {
-        // Отправляем только `documents`
         const payload = { documents: values.documents?.map(f => f.response || f) || [] };
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
@@ -194,15 +200,12 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         }
     };
 
-    // ---
-    // ❗️❗️❗️ И ИСПРАВЛЕНИЕ ЗДЕСЬ ❗️❗️❗️
-    // ---
     const onRemarksFinish = async (values) => {
-        // Мы отправляем ТОЛЬКО те данные, которые в этой форме.
         const payload = {
-            comment: values.comment,
+            comment: values.comment || null, // Явно отправляем null, если пусто
             attachments: values.attachments?.map(f => f.response || f) || [],
         };
+
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved'));
@@ -215,10 +218,12 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
 
     const openAdd = () => { addForm.resetFields(); setAddMode('new'); setSelectedCategory(null); setAddOpen(true); };
 
-    // При открытии модалок - заполняем ВСЕ поля из `record`
     const openEdit = (record) => {
         setEditingItem(record);
-        editForm.setFieldsValue(record);
+        editForm.setFieldsValue({
+            action: record.action || '',
+            author: record.author || ''
+        });
         setEditOpen(true);
     };
 
@@ -301,7 +306,8 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 const hasAttachments = record.attachments && record.attachments.length > 0;
                 const content = (
                     <div>
-                        {text && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} />}
+                        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} />
+
                         {hasAttachments && (
                             <List size="small" dataSource={record.attachments} renderItem={(file) => (
                                 <List.Item style={{padding: '4px 0'}}>
@@ -366,7 +372,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 </Form>
             </Modal>
 
-            {/* Модалка Measure (onEditFinish) */}
             <Modal title={t('Edit Measure', { defaultValue: 'Edit Measure' })} open={editOpen} onCancel={() => setEditOpen(false)} onOk={editForm.submit} okText={t('Save', { defaultValue: 'Save' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
                 <Form layout="vertical" form={editForm} onFinish={onEditFinish}>
                     <Form.Item name="action" label={t('table.massnahme')}><Input.TextArea rows={4} /></Form.Item>
@@ -384,7 +389,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 </Form>
             </Modal>
 
-            {/* Модалка Remarks (onRemarksFinish) */}
             <Modal title={t('Edit remarks')} open={remarksOpen} onCancel={() => setRemarksOpen(false)} onOk={() => remarksForm.submit()} okText={t('Save')} cancelText={t('common.cancel')} destroyOnClose>
                 <Form layout="vertical" form={remarksForm} onFinish={onRemarksFinish} preserve={false}>
                     <Form.Item name="comment" label={t('table.bemerkungen')}><Input.TextArea rows={4} /></Form.Item>
@@ -399,4 +403,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     );
 });
 
+// --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+// Используем 'export default'
 export default JirasTable;

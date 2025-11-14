@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, Spin, AutoComplete, Select } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
-import JirasTable from '../components/JirasTable';
+// --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+import JirasTable from '../components/JirasTable'; // <-- Без фигурных скобок
 import LanguageSwitch from '../components/LanguageSwitch';
 import { useAuth } from '../context/AuthContext';
 import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
@@ -34,7 +35,7 @@ export default function ProjectDetailPage() {
 
     // Управление историей
     const [historyOpen, setHistoryOpen] = useState(false);
-    const [historyEvents, setHistoryEvents] = useState([]); // <-- Сюда загружается история
+    const [historyEvents, setHistoryEvents] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
 
     // Управление модалкой статуса
@@ -52,11 +53,11 @@ export default function ProjectDetailPage() {
             try {
                 const response = await apiClient.get(`/projects/${projectId}`);
                 setProject(response.data);
-                setProjStatus(response.data.status); // Устанавливаем статус проекта
+                setProjStatus(response.data.status);
             } catch (error) {
                 console.error("Failed to fetch project", error);
                 message.error("Project not found.");
-                navigate('/projects'); // Если проект не найден, возвращаем на список
+                navigate('/projects');
             } finally {
                 setLoadingProject(false);
             }
@@ -105,7 +106,7 @@ export default function ProjectDetailPage() {
         setHistoryLoading(true);
         try {
             const response = await apiClient.get(`/projects/${projectId}/history`);
-            setHistoryEvents(response.data); // <-- Заполняем HİSTORYEVENTS
+            setHistoryEvents(response.data);
         } catch (error) {
             console.error("Failed to fetch history", error);
             message.error("Failed to load project history.");
@@ -140,7 +141,6 @@ export default function ProjectDetailPage() {
 
             message.success('Project updated!');
 
-            // Важно: принудительно обновляем историю
             fetchHistory();
         } catch (error) {
             message.error('Failed to update project.');
@@ -150,7 +150,7 @@ export default function ProjectDetailPage() {
     // Открываем модалку истории
     const openHistoryModal = () => {
         setHistoryOpen(true);
-        fetchHistory(); // Загружаем историю при открытии
+        fetchHistory();
     };
 
     const handleExportPDF = async () => {
@@ -165,6 +165,38 @@ export default function ProjectDetailPage() {
         fetchItems();
         fetchHistory();
     }
+
+    // --- ХЕЛПЕР-ФУНКЦИЯ ДЛЯ РЕНДЕРА ИСТОРИИ ---
+    const renderHistoryEvent = (item) => {
+        const { event_type, details } = item;
+
+        try {
+            const data = JSON.parse(details);
+
+            if (typeof data !== 'object' || data === null) {
+                throw new Error("Not an object");
+            }
+
+            if (event_type === 'project_status_updated') {
+                const from = t(`projects.status.${data.from}`, { defaultValue: data.from });
+                const to = t(`projects.status.${data.to}`, { defaultValue: data.to });
+                return `Project status changed from '${from}' to '${to}'.`;
+            }
+
+            if (event_type === 'item_status_updated') {
+                const from = t(`itemStatus.${data.from}`, { defaultValue: data.from });
+                const to = t(`itemStatus.${data.to}`, { defaultValue: data.to });
+                return `Item '${data.item_name}' status changed from '${from}' to '${to}'.`;
+            }
+
+            return details;
+
+        } catch (e) {
+            return details;
+        }
+    };
+    // ---
+
 
     if (loadingProject) {
         return (
@@ -213,7 +245,7 @@ export default function ProjectDetailPage() {
                         ref={tableRef}
                         items={items}
                         loading={loadingItems}
-                        fetchItems={handleItemsUpdate} // <-- Используем обертку
+                        fetchItems={handleItemsUpdate}
                         isExporting={isExporting}
                     />
 
@@ -256,18 +288,12 @@ export default function ProjectDetailPage() {
                     <Modal title={t('History')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null} width={600}>
                         <Spin spinning={historyLoading}>
                             <List
-                                //
-                                // ❗️❗️❗️ ГЛАВНЫЙ ФИКС ЗДЕСЬ ❗️❗️❗️
-                                //
-                                dataSource={historyEvents} // <-- БЫЛО: dataSource={events}
-                                //
-                                // ❗️❗️❗️ ------------------ ❗️❗️❗️
-                                //
+                                dataSource={historyEvents}
                                 renderItem={(item) => (
                                     <List.Item>
                                         <List.Item.Meta
-                                            title={item.details}
-                                            description={`${new Date(item.timestamp).toLocaleString(t('common.locale', { defaultValue: 'de-DE' }))} - ${item.user_name} (${item.event_type})`}
+                                            title={renderHistoryEvent(item)}
+                                            description={`${new Date(item.timestamp).toLocaleString(t('common.locale', { defaultValue: 'de-DE' }))} - ${item.user_name} (${t(`historyEvent.${item.event_type}`, { defaultValue: item.event_type })})`}
                                         />
                                     </List.Item>
                                 )}
