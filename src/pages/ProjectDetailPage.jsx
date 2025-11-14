@@ -1,6 +1,6 @@
 // src/pages/ProjectDetailPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, Spin } from 'antd';
+import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, AutoComplete, Spin } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
 import JirasTable from '../components/JirasTable';
@@ -8,9 +8,11 @@ import LanguageSwitch from '../components/LanguageSwitch';
 import { useAuth } from '../context/AuthContext';
 import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { Select } from 'antd';
 import { exportToPDF } from '../services/pdfGenerator';
 import apiClient from '../services/api';
-import { logGlobalEvent } from '../services/mockData';
+
+const { Option } = Select;
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -22,29 +24,28 @@ export default function ProjectDetailPage() {
     const navigate = useNavigate();
     const tableRef = useRef(null);
 
-    // --- ИЗМЕНЕНИЯ ЗДЕСЬ ---
     const [project, setProject] = useState(null);
     const [loadingProject, setLoadingProject] = useState(true);
-    // -------------------------
-
     const [items, setItems] = useState([]);
     const [loadingItems, setLoadingItems] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+
+    // --- УПРАВЛЕНИЕ МЕНЕДЖЕРАМИ ---
+    const [managers, setManagers] = useState([]); // Список всех менеджеров
+    const [loadingManagers, setLoadingManagers] = useState(false);
+
+    // --- УПРАВЛЕНИЕ ИСТОРИЕЙ ---
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [historyEvents, setHistoryEvents] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     // Вся логика для статуса проекта, истории и модальных окон остается без изменений
     const [projStatus, setProjStatus] = useState('in_progress');
     const canChangeProjectStatus = user?.role === 'admin' || user?.role === 'auditor';
     const statusColor = projStatus === 'finished' ? 'green' : projStatus === 'in_progress' ? 'geekblue' : 'gold';
-    const [historyOpen, setHistoryOpen] = useState(false);
-    const [events, setEvents] = useState([]);
     const [statusModal, setStatusModal] = useState(false);
-    const [statusDraft, setStatusDraft] = useState(projStatus);
+    const [statusDraft, setStatusDraft] = useState({ status: projStatus, manager: '' }); // <-- Теперь это объект
 
-    const logEvent = useCallback((evt) => {
-        const fullEvent = { ...evt, ts: new Date().toISOString(), projectName: project?.name };
-        setEvents(prev => [fullEvent, ...prev]);
-        logGlobalEvent(fullEvent);
-    }, [project?.name]);
 
     // --- ИЗМЕНЕНИЯ ЗДЕСЬ: Загружаем данные о проекте ---
     useEffect(() => {
@@ -86,29 +87,71 @@ export default function ProjectDetailPage() {
         fetchItems();
     }, [fetchItems]);
 
-    const openStatusModal = () => { setStatusDraft(projStatus); setStatusModal(true); };
-
-    const saveStatus = async () => {
-        try {
-            // Теперь обновляем статус и на бэкенде!
-            const response = await apiClient.put(`/projects/${project.id}`, { ...project, status: statusDraft });
-            const updatedProject = response.data;
-
-            const prev = projStatus;
-            setProject(updatedProject);
-            setProjStatus(updatedProject.status);
-            setStatusModal(false);
-
-            logEvent({
-                kind: 'project_status', by: user?.name,
-                message: `Project status: ${t(`projects.status.${prev}`)} → ${t(`projects.status.${updatedProject.status}`)}`
-            });
-            message.success('Project status updated!');
-        } catch (error) {
-            message.error('Failed to update project status.');
+    // --- НОВАЯ ФУНКЦИЯ: Загрузка менеджеров ---
+    const fetchManagers = async () => {
+        if (canChangeProjectStatus) {
+            setLoadingManagers(true);
+            try {
+                const res = await apiClient.get('/users/managers');
+                setManagers(res.data.map(m => m.name));
+            } catch (e) {
+                console.error("Failed to load managers", e);
+            } finally {
+                setLoadingManagers(false);
+            }
         }
     };
 
+    // --- НОВАЯ ФУНКЦИЯ: Загрузка истории ---
+    const fetchHistory = async () => {
+        if (!projectId) return;
+        setHistoryLoading(true);
+        try {
+            const response = await apiClient.get(`/projects/${projectId}/history`);
+            setHistoryEvents(response.data);
+        } catch (error) {
+            console.error("Failed to fetch history", error);
+            message.error("Failed to load project history.");
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    // Открываем модалку статуса
+    const openStatusModal = () => {
+        if (managers.length === 0) fetchManagers(); // Подгружаем менеджеров, если их нет
+        setStatusDraft({
+            status: project.status,
+            manager: project.manager
+        });
+        setStatusModal(true);
+    };
+
+    // Сохраняем статус И менеджера
+    const saveStatus = async () => {
+        try {
+            const payload = {
+                status: statusDraft.status,
+                manager: statusDraft.manager,
+            };
+            const response = await apiClient.put(`/projects/${project.id}`, payload);
+            const updatedProject = response.data;
+
+            setProject(updatedProject);
+            setProjStatus(updatedProject.status); // Обновляем локальный статус
+            setStatusModal(false);
+
+            message.success('Project updated!');
+        } catch (error) {
+            message.error('Failed to update project.');
+        }
+    };
+
+    // Открываем модалку истории
+    const openHistoryModal = () => {
+        setHistoryOpen(true);
+        fetchHistory(); // Загружаем историю при открытии
+    };
     const handleExportPDF = async () => {
         if (!project || !items) return;
         setIsExporting(true);
@@ -164,32 +207,63 @@ export default function ProjectDetailPage() {
                         items={items}
                         loading={loadingItems}
                         fetchItems={fetchItems}
-                        onLog={logEvent}
                         isExporting={isExporting}
                     />
 
-                    <Modal title={t('Change project status')} open={statusModal} onCancel={() => setStatusModal(false)} onOk={saveStatus} okText={t('Save')} cancelText={t('common.cancel')}>
-                        <Radio.Group value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
-                            <Space direction="vertical">
-                                <Radio value="in_progress">{t('projects.status.in_progress')}</Radio>
-                                <Radio value="finished">{t('projects.status.finished')}</Radio>
-                                <Radio value="on_hold">{t('projects.status.on_hold')}</Radio>
-                            </Space>
-                        </Radio.Group>
+                    {/* Модалка Статуса и Менеджера */}
+                    <Modal
+                        title={t('Change project settings')}
+                        open={statusModal}
+                        onCancel={() => setStatusModal(false)}
+                        onOk={saveStatus}
+                        okText={t('Save')}
+                        cancelText={t('common.cancel')}
+                    >
+                        <Space direction="vertical" style={{width: '100%'}}>
+                            <Text strong>{t('projects.form.status')}</Text>
+                            <Radio.Group
+                                value={statusDraft.status}
+                                onChange={(e) => setStatusDraft(s => ({ ...s, status: e.target.value }))}
+                            >
+                                <Space direction="vertical">
+                                    <Radio value="in_progress">{t('projects.status.in_progress')}</Radio>
+                                    <Radio value="finished">{t('projects.status.finished')}</Radio>
+                                    <Radio value="on_hold">{t('projects.status.on_hold')}</Radio>
+                                </Space>
+                            </Radio.Group>
+
+                            <Text strong style={{marginTop: 16}}>{t('projects.manager')}</Text>
+                            <AutoComplete
+                                value={statusDraft.manager}
+                                options={managers.map(name => ({ value: name }))}
+                                style={{ width: '100%' }}
+                                onChange={(value) => setStatusDraft(s => ({ ...s, manager: value }))}
+                                placeholder={t('projects.form.managerMsg')}
+                                filterOption={(inputValue, option) =>
+                                    option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                                }
+                                loading={loadingManagers}
+                            />
+                        </Space>
                     </Modal>
-                    <Modal title={t('History')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null}>
-                        <List
-                            dataSource={events}
-                            renderItem={(item) => (
-                                <List.Item>
-                                    <Text>
-                                        <Text type="secondary">{new Date(item.ts).toLocaleString()} - {item.by}: </Text>
-                                        {item.message}
-                                    </Text>
-                                </List.Item>
-                            )}
-                            locale={{ emptyText: 'No history yet' }}
-                        />
+
+                    {/* Модалка Истории */}
+                    <Modal title={t('History')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null} width={600}>
+                        <Spin spinning={historyLoading}>
+                            <List
+                                dataSource={historyEvents}
+                                renderItem={(item) => (
+                                    <List.Item>
+                                        <List.Item.Meta
+                                            title={item.details}
+                                            description={`${new Date(item.timestamp).toLocaleString()} - ${item.user_name} (${item.event_type})`}
+                                        />
+                                    </List.Item>
+                                )}
+                                locale={{ emptyText: 'No history yet' }}
+                                style={{maxHeight: '60vh', overflowY: 'auto'}}
+                            />
+                        </Spin>
                     </Modal>
                 </Content>
             </Layout>

@@ -88,7 +88,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
             message.success(t('Item added successfully'));
             fetchItems();
             setAddOpen(false);
-            onLog({ kind: 'add_item', by: currentUserName, message: `${itemText} -> Created` });
         } catch (error) {
             message.error(t('Failed to add item'));
         }
@@ -128,7 +127,6 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.put(`/projects/${projectId}/items/${itemId}`, payload);
             fetchItems();
-            onLog({ kind: 'item_status', by: currentUserName, message: `Status changed to ${newStatus}` });
         } catch (error) {
             message.error(t('Failed to change status'));
         }
