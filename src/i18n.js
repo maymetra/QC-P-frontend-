@@ -15,6 +15,7 @@ i18n
                         users: 'Users',
                         templates: 'Templates',
                         archive: 'Archive',
+                        profile: 'Profile',
                     },
                     /* ---------- TABLE HEADERS ---------- */
                     table: {
@@ -62,6 +63,19 @@ i18n
                         usernameMsg: 'Please input your Username!',
                         passwordMsg: 'Please input your Password!',
                         invalidCredentials: 'Invalid username or password',
+                        forgotModalTitle: 'Reset Password Request', // <-- NEW
+                        forgotDesc: 'Please enter your username. The administrator will be notified.', // <-- NEW
+                        submitRequest: 'Send Request', // <-- NEW
+                        requestSent: 'Request sent successfully', // <-- NEW
+                    },
+                    profile: {
+                        title: 'My Profile',
+                        name: 'Name',
+                        password: 'New Password',
+                        confirmPassword: 'Confirm Password',
+                        update: 'Update Profile',
+                        success: 'Profile updated successfully',
+                        mismatch: 'Passwords do not match!',
                     },
                     /* ---------- GENERAL & PROJECTS ---------- */
                     logout: 'Logout',
@@ -99,6 +113,7 @@ i18n
                     /* ---------- USERS PAGE ---------- */
                     usersPage: {
                         title: 'User Management',
+                        resetRequested: 'Password reset requested!',
                         addUser: 'Add User',
                         table: { name: 'Name', username: 'Username', role: 'Role', action: 'Action', edit: 'Edit' },
                         addUserModal: {

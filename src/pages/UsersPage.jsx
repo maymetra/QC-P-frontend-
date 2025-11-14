@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import AddUserForm from '../components/AddUserForm';
-import { LogoutOutlined, PlusOutlined, UserAddOutlined } from '@ant-design/icons';
+import { LogoutOutlined, PlusOutlined, UserAddOutlined, ExclamationCircleOutlined, } from '@ant-design/icons';
+import { Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../services/api';
 
@@ -100,6 +101,22 @@ export default function UsersPage() {
     };
 
     const columns = [
+        {
+            title: t('usersPage.table.name'),
+            dataIndex: 'name',
+            key: 'name',
+            render: (text, record) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {text}
+                    {/* Показываем иконку, если requested reset */}
+                    {record.password_reset_needed && (
+                        <Tooltip title={t('usersPage.resetRequested', {defaultValue: 'Password Reset Requested'})}>
+                            <ExclamationCircleOutlined style={{ color: '#faad14', fontSize: '16px' }} />
+                        </Tooltip>
+                    )}
+                </div>
+            )
+        },
         { title: t('usersPage.table.name'), dataIndex: 'name', key: 'name' },
         { title: t('usersPage.table.username'), dataIndex: 'username', key: 'username' },
         {

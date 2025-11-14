@@ -6,7 +6,7 @@ import {
     UserOutlined,
     SettingOutlined,
     InboxOutlined,
-    DashboardOutlined, SnippetsOutlined,
+    DashboardOutlined, SnippetsOutlined, IdcardOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -59,8 +59,12 @@ export default function NavigationTab({ activeKey }) {
             label: t('menu.users')
         });
     }
-
-    // Удалена старая вкладка "Settings" отсюда
+    items.push({ type: 'divider' });
+    items.push({
+        key: '/profile',
+        icon: <IdcardOutlined />,
+        label: t('menu.profile', {defaultValue: 'Profile'})
+    });
 
     const handleClick = ({ key }) => navigate(key);
 

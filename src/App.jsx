@@ -8,6 +8,7 @@ import UsersPage from './pages/UsersPage';
 import TemplatesPage from './pages/TemplatesPage'; // <-- ИЗМЕНЕНО
 import ArchivedProjectsPage from './pages/ArchivedProjectsPage';
 import DashboardPage from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
 
 export default function App() {
     return (
@@ -24,6 +25,7 @@ export default function App() {
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/templates" element={<TemplatesPage />} /> {/* <-- ИЗМЕНЕНО */}
+                <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             {/* Редирект с главной (остается прежним) */}
