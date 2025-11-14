@@ -1,17 +1,17 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../services/api'; // <-- 1. Импортируем наш API-клиент
-import { jwtDecode } from 'jwt-decode'; // <-- 2. Импортируем декодер токенов
+import apiClient from '../services/api';
+import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
+        // ... (логика загрузки пользователя из localStorage остается)
         const token = localStorage.getItem('token');
         if (token) {
             try {
-                // Если токен есть, декодируем его, чтобы получить данные пользователя
                 const decodedUser = jwtDecode(token);
                 return decodedUser;
             } catch (error) {
@@ -22,12 +22,30 @@ export const AuthProvider = ({ children }) => {
         return null;
     });
 
+    // --- НОВОЕ СОСТОЯНИЕ ДЛЯ УВЕДОМЛЕНИЙ ---
+    const [notificationCount, setNotificationCount] = useState(0);
     const navigate = useNavigate();
 
-    // --- 3. Полностью заменяем функцию login ---
+    // --- НОВАЯ ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ СЧЕТЧИКА ---
+    const fetchNotificationCount = useCallback(async (currentUser) => {
+        if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'auditor')) {
+            setNotificationCount(0);
+            return;
+        }
+        try {
+            const response = await apiClient.get('/users/notifications/counts');
+            const { unknown_managers, password_resets } = response.data;
+            setNotificationCount(unknown_managers + password_resets);
+        } catch (error) {
+            console.error("Failed to fetch notification count", error);
+            // Не показываем ошибку, просто сбрасываем счетчик
+            setNotificationCount(0);
+        }
+    }, []);
+
+    // --- ОБНОВЛЯЕМ LOGIN ---
     const login = async (username, password) => {
         try {
-            // FastAPI ожидает данные в формате `application/x-www-form-urlencoded`
             const formData = new URLSearchParams();
             formData.append('username', username);
             formData.append('password', password);
@@ -37,15 +55,13 @@ export const AuthProvider = ({ children }) => {
             });
 
             const { access_token } = response.data;
-
-            // Сохраняем токен в localStorage
             localStorage.setItem('token', access_token);
-
-            // Декодируем токен, чтобы получить данные о пользователе
             const userData = jwtDecode(access_token);
             setUser(userData);
 
-            // Логика перенаправления
+            // Загружаем счетчик сразу после логина
+            fetchNotificationCount(userData);
+
             if (userData.role === 'admin' || userData.role === 'auditor') {
                 navigate('/dashboard');
             } else {
@@ -53,17 +69,34 @@ export const AuthProvider = ({ children }) => {
             }
         } catch (error) {
             console.error("Login failed", error);
-            throw error; // Пробрасываем ошибку, чтобы компонент LoginForm мог ее показать
+            throw error;
         }
     };
 
     const logout = () => {
-        localStorage.removeItem('token'); // Удаляем токен
+        localStorage.removeItem('token');
         setUser(null);
+        setNotificationCount(0); // Сбрасываем счетчик при выходе
         navigate('/login');
     };
 
-    const value = { user, login, logout };
+    // --- НОВЫЙ EFFECT ДЛЯ ОПРОСА ---
+    // Опрашиваем бэкенд каждые 30 секунд на наличие новых уведомлений
+    useEffect(() => {
+        if (user) {
+            // Загружаем при первой загрузке страницы с пользователем
+            fetchNotificationCount(user);
+
+            const interval = setInterval(() => {
+                fetchNotificationCount(user);
+            }, 30000); // 30 секунд
+
+            return () => clearInterval(interval); // Очищаем интервал при размонтировании
+        }
+    }, [user, fetchNotificationCount]);
+
+    // Добавляем notificationCount и fetchNotificationCount в value
+    const value = { user, login, logout, notificationCount, fetchNotificationCount };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,26 +1,27 @@
 // src/components/NavigationTab.jsx
 import React from 'react';
-import { Menu } from 'antd';
+import { Menu, Badge } from 'antd'; // <-- Импортируем Badge
 import {
     AppstoreOutlined,
     UserOutlined,
-    SettingOutlined,
     InboxOutlined,
-    DashboardOutlined, SnippetsOutlined, IdcardOutlined,
+    DashboardOutlined,
+    SnippetsOutlined,
+    IdcardOutlined // <-- Убедитесь, что IdcardOutlined импортирован
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext'; // <-- useAuth
 
 export default function NavigationTab({ activeKey }) {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const { user } = useAuth();
+    // Получаем пользователя и НОВЫЙ СЧЕТЧИК из контекста
+    const { user, notificationCount } = useAuth();
     const isAuditorOrAdmin = user?.role === 'admin' || user?.role === 'auditor';
 
     const items = [];
 
-    // Показываем дашборд только админу или аудитору
     if (isAuditorOrAdmin) {
         items.push({
             key: '/dashboard',
@@ -29,7 +30,6 @@ export default function NavigationTab({ activeKey }) {
         });
     }
 
-    // --- ИЗМЕНЕН ПОРЯДОК И КЛЮЧИ ---
     items.push(
         {
             key: '/projects',
@@ -50,16 +50,22 @@ export default function NavigationTab({ activeKey }) {
             label: t('menu.templates')
         });
     }
-    // ---------------------------------
 
     if (user && user.role === 'admin') {
         items.push({
             key: '/users',
             icon: <UserOutlined />,
-            label: t('menu.users')
+            // --- Оборачиваем label в Badge ---
+            label: (
+                <Badge count={notificationCount} size="small" offset={[10, 0]}>
+                    {t('menu.users')}
+                </Badge>
+            )
         });
     }
+
     items.push({ type: 'divider' });
+
     items.push({
         key: '/profile',
         icon: <IdcardOutlined />,

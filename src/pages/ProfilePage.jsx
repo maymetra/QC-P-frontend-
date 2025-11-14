@@ -11,7 +11,7 @@ const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
 export default function ProfilePage() {
-    const { user, logout } = useAuth();
+    const { user, logout, fetchNotificationCount } = useAuth();
     const { t } = useTranslation();
     const [form] = Form.useForm();
 
@@ -26,6 +26,7 @@ export default function ProfilePage() {
             message.success(t('profile.success'));
             form.setFieldValue('password', '');
             form.setFieldValue('confirm', '');
+            fetchNotificationCount(user);
         } catch (error) {
             console.error("Update failed", error);
             message.error("Failed to update profile");

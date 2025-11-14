@@ -14,7 +14,7 @@ const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
 export default function UsersPage() {
-    const { user, logout } = useAuth();
+    const { user, logout, fetchNotificationCount } = useAuth();
     const { t } = useTranslation();
     const [form] = Form.useForm();
 
@@ -93,6 +93,7 @@ export default function UsersPage() {
             }
             fetchData(); // Обновляем данные
             handleCancel();
+            fetchNotificationCount(user);
         } catch (error) {
             console.error("Failed to save user", error);
             const errorMsg = error.response?.data?.detail || 'An unexpected error occurred.';
