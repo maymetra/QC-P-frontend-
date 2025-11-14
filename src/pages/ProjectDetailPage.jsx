@@ -1,6 +1,6 @@
 // src/pages/ProjectDetailPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, AutoComplete, Spin } from 'antd';
+import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, Spin, AutoComplete, Select } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
 import JirasTable from '../components/JirasTable';
@@ -8,14 +8,12 @@ import LanguageSwitch from '../components/LanguageSwitch';
 import { useAuth } from '../context/AuthContext';
 import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { Select } from 'antd';
 import { exportToPDF } from '../services/pdfGenerator';
 import apiClient from '../services/api';
 
-const { Option } = Select;
-
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 export default function ProjectDetailPage() {
     const { projectId } = useParams();
@@ -30,24 +28,23 @@ export default function ProjectDetailPage() {
     const [loadingItems, setLoadingItems] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
-    // --- УПРАВЛЕНИЕ МЕНЕДЖЕРАМИ ---
-    const [managers, setManagers] = useState([]); // Список всех менеджеров
+    // Управление менеджерами
+    const [managers, setManagers] = useState([]);
     const [loadingManagers, setLoadingManagers] = useState(false);
 
-    // --- УПРАВЛЕНИЕ ИСТОРИЕЙ ---
+    // Управление историей
     const [historyOpen, setHistoryOpen] = useState(false);
-    const [historyEvents, setHistoryEvents] = useState([]);
+    const [historyEvents, setHistoryEvents] = useState([]); // <-- Сюда загружается история
     const [historyLoading, setHistoryLoading] = useState(false);
 
-    // Вся логика для статуса проекта, истории и модальных окон остается без изменений
+    // Управление модалкой статуса
     const [projStatus, setProjStatus] = useState('in_progress');
     const canChangeProjectStatus = user?.role === 'admin' || user?.role === 'auditor';
     const statusColor = projStatus === 'finished' ? 'green' : projStatus === 'in_progress' ? 'geekblue' : 'gold';
     const [statusModal, setStatusModal] = useState(false);
-    const [statusDraft, setStatusDraft] = useState({ status: projStatus, manager: '' }); // <-- Теперь это объект
+    const [statusDraft, setStatusDraft] = useState({ status: projStatus, manager: '' });
 
-
-    // --- ИЗМЕНЕНИЯ ЗДЕСЬ: Загружаем данные о проекте ---
+    // Загрузка проекта
     useEffect(() => {
         const fetchProject = async () => {
             if (!projectId) return;
@@ -67,8 +64,8 @@ export default function ProjectDetailPage() {
 
         fetchProject();
     }, [projectId, navigate]);
-    // ----------------------------------------------------
 
+    // Загрузка айтемов
     const fetchItems = useCallback(async () => {
         if (!projectId) return;
         setLoadingItems(true);
@@ -87,7 +84,7 @@ export default function ProjectDetailPage() {
         fetchItems();
     }, [fetchItems]);
 
-    // --- НОВАЯ ФУНКЦИЯ: Загрузка менеджеров ---
+    // Загрузка менеджеров
     const fetchManagers = async () => {
         if (canChangeProjectStatus) {
             setLoadingManagers(true);
@@ -102,13 +99,13 @@ export default function ProjectDetailPage() {
         }
     };
 
-    // --- НОВАЯ ФУНКЦИЯ: Загрузка истории ---
+    // Загрузка истории
     const fetchHistory = async () => {
         if (!projectId) return;
         setHistoryLoading(true);
         try {
             const response = await apiClient.get(`/projects/${projectId}/history`);
-            setHistoryEvents(response.data);
+            setHistoryEvents(response.data); // <-- Заполняем HİSTORYEVENTS
         } catch (error) {
             console.error("Failed to fetch history", error);
             message.error("Failed to load project history.");
@@ -119,7 +116,7 @@ export default function ProjectDetailPage() {
 
     // Открываем модалку статуса
     const openStatusModal = () => {
-        if (managers.length === 0) fetchManagers(); // Подгружаем менеджеров, если их нет
+        if (managers.length === 0) fetchManagers();
         setStatusDraft({
             status: project.status,
             manager: project.manager
@@ -138,10 +135,13 @@ export default function ProjectDetailPage() {
             const updatedProject = response.data;
 
             setProject(updatedProject);
-            setProjStatus(updatedProject.status); // Обновляем локальный статус
+            setProjStatus(updatedProject.status);
             setStatusModal(false);
 
             message.success('Project updated!');
+
+            // Важно: принудительно обновляем историю
+            fetchHistory();
         } catch (error) {
             message.error('Failed to update project.');
         }
@@ -152,12 +152,19 @@ export default function ProjectDetailPage() {
         setHistoryOpen(true);
         fetchHistory(); // Загружаем историю при открытии
     };
+
     const handleExportPDF = async () => {
         if (!project || !items) return;
         setIsExporting(true);
         await exportToPDF(project, items, user, t);
         setIsExporting(false);
     };
+
+    // Обновляем JirasTable и историю, когда айтемы меняются
+    const handleItemsUpdate = () => {
+        fetchItems();
+        fetchHistory();
+    }
 
     if (loadingProject) {
         return (
@@ -187,10 +194,10 @@ export default function ProjectDetailPage() {
                                 <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} loading={isExporting}>
                                     {t('Export to PDF', { defaultValue: 'Export to PDF' })}
                                 </Button>
-                                <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
+                                <Button icon={<HistoryOutlined />} onClick={openHistoryModal}>
                                     {t('History', { defaultValue: 'History' })}
                                 </Button>
-                                {canChangeProjectStatus && <Button type="primary" onClick={openStatusModal}>{t('Change project status')}</Button>}
+                                {canChangeProjectStatus && <Button type="primary" onClick={openStatusModal}>{t('Change project settings')}</Button>}
                             </Space>
                         )}
                     </Space>
@@ -206,11 +213,10 @@ export default function ProjectDetailPage() {
                         ref={tableRef}
                         items={items}
                         loading={loadingItems}
-                        fetchItems={fetchItems}
+                        fetchItems={handleItemsUpdate} // <-- Используем обертку
                         isExporting={isExporting}
                     />
 
-                    {/* Модалка Статуса и Менеджера */}
                     <Modal
                         title={t('Change project settings')}
                         open={statusModal}
@@ -247,16 +253,21 @@ export default function ProjectDetailPage() {
                         </Space>
                     </Modal>
 
-                    {/* Модалка Истории */}
                     <Modal title={t('History')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null} width={600}>
                         <Spin spinning={historyLoading}>
                             <List
-                                dataSource={historyEvents}
+                                //
+                                // ❗️❗️❗️ ГЛАВНЫЙ ФИКС ЗДЕСЬ ❗️❗️❗️
+                                //
+                                dataSource={historyEvents} // <-- БЫЛО: dataSource={events}
+                                //
+                                // ❗️❗️❗️ ------------------ ❗️❗️❗️
+                                //
                                 renderItem={(item) => (
                                     <List.Item>
                                         <List.Item.Meta
                                             title={item.details}
-                                            description={`${new Date(item.timestamp).toLocaleString()} - ${item.user_name} (${item.event_type})`}
+                                            description={`${new Date(item.timestamp).toLocaleString(t('common.locale', { defaultValue: 'de-DE' }))} - ${item.user_name} (${item.event_type})`}
                                         />
                                     </List.Item>
                                 )}

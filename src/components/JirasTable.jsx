@@ -25,7 +25,8 @@ const downloadFile = (blob, filename) => {
 };
 
 
-const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting }, ref) => {
+// Меняем fetchItems на onItemsUpdate
+const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isExporting }, ref) => {
     const { t } = useTranslation();
     const { projectId } = useParams();
     const { user } = useAuth();
@@ -86,7 +87,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.post(`/projects/${projectId}/items`, payload);
             message.success(t('Item added successfully'));
-            fetchItems();
+            onItemsUpdate(); // <-- Вызываем onItemsUpdate
             setAddOpen(false);
         } catch (error) {
             message.error(t('Failed to add item'));
@@ -97,7 +98,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.delete(`/projects/${projectId}/items/${itemId}`);
             message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
-            fetchItems();
+            onItemsUpdate(); // <-- Вызываем onItemsUpdate
         } catch (error) {
             message.error(t('Failed to delete item'));
         }
@@ -111,7 +112,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved', { defaultValue: 'Saved' }));
-            fetchItems();
+            onItemsUpdate(); // <-- Вызываем onItemsUpdate
             setEditOpen(false);
         } catch (error) {
             message.error(t('Failed to save changes'));
@@ -126,7 +127,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         };
         try {
             await apiClient.put(`/projects/${projectId}/items/${itemId}`, payload);
-            fetchItems();
+            onItemsUpdate(); // <-- Вызываем onItemsUpdate
         } catch (error) {
             message.error(t('Failed to change status'));
         }
@@ -174,7 +175,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Documents updated.'));
-            fetchItems();
+            onItemsUpdate(); // <-- Вызываем onItemsUpdate
             setDocUploadOpen(false);
         } catch (error) {
             message.error(t('Failed to update documents'));
@@ -189,7 +190,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         try {
             await apiClient.put(`/projects/${projectId}/items/${editingItem.id}`, payload);
             message.success(t('Saved'));
-            fetchItems();
+            onItemsUpdate(); // <-- Вызываем onItemsUpdate
             setRemarksOpen(false);
         } catch (error) {
             message.error(t('Failed to save remarks'));
@@ -373,5 +374,3 @@ const JirasTable = forwardRef(({ items, loading, fetchItems, onLog, isExporting 
         </div>
     );
 });
-
-export default JirasTable;
