@@ -1,13 +1,14 @@
 // src/pages/ArchivedProjectsPage.jsx
-import React, { useEffect, useState } from 'react';
-import { Layout, Typography, Button, Flex, List, Tag, message, Popconfirm } from 'antd';
-import { LogoutOutlined, DeleteOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Layout, Typography, Button, Flex, Table, Tag, message, Popconfirm, Input, Space } from 'antd';
+import { LogoutOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../services/api'; // <-- 1. Импортируем наш API-клиент
+import apiClient from '../services/api';
+import dayjs from 'dayjs';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -18,25 +19,14 @@ export default function ArchivedProjectsPage() {
     const navigate = useNavigate();
 
     const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(false); // <-- 2. Добавляем состояние загрузки
-    const handleDelete = async (projectId) => {
-        try {
-            await apiClient.delete(`/projects/${projectId}`);
-            message.success(t('projects.deleteSuccess', { defaultValue: 'Project deleted successfully' }));
-            // Нам нужна функция fetch, чтобы ее здесь вызвать
-            // Давайте переименуем ее и вынесем наружу useEffect
-            fetchProjects();
-        } catch (error) {
-            console.error("Failed to delete project", error);
-            message.error(t('projects.deleteError', { defaultValue: 'Failed to delete project' }));
-        }
-    };
+    const [loading, setLoading] = useState(false);
+    const [searchText, setSearchText] = useState('');
 
-    // --- 3. Полностью заменяем useEffect ---
     const fetchProjects = async () => {
         setLoading(true);
         try {
             const response = await apiClient.get('/projects/');
+            // Фильтруем только завершенные
             const finishedProjects = response.data.filter(p => p.status === 'finished');
             setProjects(finishedProjects);
         } catch (error) {
@@ -50,6 +40,82 @@ export default function ArchivedProjectsPage() {
     useEffect(() => {
         fetchProjects();
     }, [user]);
+
+    const handleDelete = async (projectId) => {
+        try {
+            await apiClient.delete(`/projects/${projectId}`);
+            message.success(t('projects.deleteSuccess', { defaultValue: 'Project deleted successfully' }));
+            fetchProjects();
+        } catch (error) {
+            console.error("Failed to delete project", error);
+            message.error(t('projects.deleteError', { defaultValue: 'Failed to delete project' }));
+        }
+    };
+
+    // --- Конфигурация колонок таблицы ---
+    const columns = [
+        {
+            title: t('projects.form.name', { defaultValue: 'Project Name' }),
+            dataIndex: 'name',
+            key: 'name',
+            sorter: (a, b) => a.name.localeCompare(b.name),
+            render: (text) => <Text strong>{text}</Text>,
+        },
+        {
+            title: t('projects.form.kunde', { defaultValue: 'Customer' }),
+            dataIndex: 'kunde',
+            key: 'kunde',
+            sorter: (a, b) => (a.kunde || '').localeCompare(b.kunde || ''),
+        },
+        {
+            title: t('projects.manager', { defaultValue: 'Manager' }),
+            dataIndex: 'manager',
+            key: 'manager',
+            sorter: (a, b) => (a.manager || '').localeCompare(b.manager || ''),
+            responsive: ['md'], // Скрывать на мобильных
+        },
+        {
+            title: 'Archived Date', // Можно добавить ключ в i18n
+            dataIndex: 'archived_at',
+            key: 'archived_at',
+            sorter: (a, b) => {
+                const dateA = a.archived_at ? dayjs(a.archived_at).unix() : 0;
+                const dateB = b.archived_at ? dayjs(b.archived_at).unix() : 0;
+                return dateA - dateB;
+            },
+            render: (date) => date ? dayjs(date).format('DD.MM.YYYY') : '—',
+        },
+        {
+            title: t('usersPage.table.action', { defaultValue: 'Action' }),
+            key: 'action',
+            width: 100,
+            render: (_, record) => (
+                <Space onClick={(e) => e.stopPropagation()}>
+                    {user.role === 'admin' && (
+                        <Popconfirm
+                            title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete?' })}
+                            onConfirm={() => handleDelete(record.id)}
+                            okText={t('common.yes')}
+                            cancelText={t('common.no')}
+                        >
+                            <Button danger type="text" icon={<DeleteOutlined />} />
+                        </Popconfirm>
+                    )}
+                </Space>
+            ),
+        },
+    ];
+
+    // Фильтрация данных на клиенте
+    const filteredProjects = useMemo(() => {
+        if (!searchText) return projects;
+        const lowerSearch = searchText.toLowerCase();
+        return projects.filter(p =>
+            p.name.toLowerCase().includes(lowerSearch) ||
+            (p.kunde && p.kunde.toLowerCase().includes(lowerSearch)) ||
+            (p.manager && p.manager.toLowerCase().includes(lowerSearch))
+        );
+    }, [projects, searchText]);
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -68,53 +134,27 @@ export default function ArchivedProjectsPage() {
                 </Sider>
 
                 <Content className="p-6 bg-gray-50">
-                    <Flex justify="space-between" align="center" className="!mb-4">
+                    <Flex justify="space-between" align="center" className="!mb-6">
                         <Title level={2} className="!m-0">{t('menu.archive', {defaultValue: 'Archive'})}</Title>
+                        <Input
+                            placeholder={t('projects.filters.search', { defaultValue: 'Search...' })}
+                            prefix={<SearchOutlined />}
+                            style={{ width: 300 }}
+                            onChange={e => setSearchText(e.target.value)}
+                            allowClear
+                        />
                     </Flex>
 
-                    <List
-                        loading={loading} // <-- 4. Используем состояние загрузки
-                        itemLayout="vertical"
-                        dataSource={projects}
-                        rowKey={(item) => item.id}
-                        renderItem={(item) => (
-                            <List.Item
-                                onClick={() => navigate(`/projects/${item.id}`)}
-                                style={{ cursor: 'pointer' }}
-                                actions={[
-                                    <Tag key="kunde">{item.kunde || '—'}</Tag>,
-                                    <Tag key="status" color="green">
-                                        {t(`projects.status.${item.status}`, { defaultValue: item.status })}
-                                    </Tag>,
-                                    user.role === 'admin' && ( // Показываем кнопку только админам
-                                        <Popconfirm
-                                            key="delete"
-                                            title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
-                                            description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
-                                            onConfirm={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(item.id);
-                                            }}
-                                            onCancel={(e) => e.stopPropagation()}
-                                            okText={t('common.yes', { defaultValue: 'Yes' })}
-                                            cancelText={t('common.no', { defaultValue: 'No' })}
-                                        >
-                                            <Button
-                                                danger
-                                                icon={<DeleteOutlined />}
-                                                size="small"
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        </Popconfirm>
-                                    )
-                                ]}
-                            >
-                                <List.Item.Meta
-                                    title={item.name}
-                                    description={`${t('projects.manager', { defaultValue: 'Manager' })}: ${item.manager || '—'}`}
-                                />
-                            </List.Item>
-                        )}
+                    <Table
+                        columns={columns}
+                        dataSource={filteredProjects}
+                        rowKey="id"
+                        loading={loading}
+                        pagination={{ pageSize: 10 }}
+                        onRow={(record) => ({
+                            onClick: () => navigate(`/projects/${record.id}`),
+                            style: { cursor: 'pointer' }
+                        })}
                     />
                 </Content>
             </Layout>
