@@ -71,6 +71,7 @@ export default function DashboardPage() {
         })
         .filter((item) => item.value > 0);
 
+    const totalTickets = chartData.reduce((acc, curr) => acc + (curr.value || 0), 0);
 // Конфигурация для круговой диаграммы
     const pieConfig = {
         data: chartData,
@@ -81,14 +82,31 @@ export default function DashboardPage() {
         autoFit: true,
         height: 260,         // явная высота, чтобы точно было место
         label: {
-            type: 'inner',
-            offset: '-30%',
-            content: '{value}',  // просто число внутри сегмента
+            text: 'value', // В G2 v5 просто указываем имя поля
             style: {
                 fontSize: 14,
+                fontWeight: 'bold',
+                textAlign: 'center',
+                fill: '#fff', // Белый цвет текста для контраста на сегментах
             },
+            position: 'inside',
         },
         legend: { position: 'bottom' },
+        annotations: [
+            {
+                type: 'text',
+                style: {
+                    text: String(totalTickets), // Отображаем общее число
+                    x: '50%',
+                    y: '50%',
+                    textAlign: 'center',
+                    fontSize: 32,
+                    fontWeight: 'bold',
+                    fill: '#1f2937', // Темно-серый цвет
+                },
+                tooltip: false, // Отключаем тултип для текста
+            },
+        ],
     };
 
     return (
