@@ -50,26 +50,51 @@ export const exportToPDF = async (project, tableData, user, t) => {
     doc.text(`${user.name}`, 175, 46);
 
     // --- Таблица с данными ---
+    // Функция для очистки HTML-тегов (если в remarks есть форматирование)
+    const stripHtml = (html) => {
+        if (!html) return '';
+        const tmp = document.createElement("DIV");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "";
+    };
+
     autoTable(doc, {
         startY: 55,
         head: [
             [
-                t('table.pruefungsgegenstand'), t('table.massnahme'), t('table.autor'),
-                t('table.pruefer'), t('table.planTermin'), t('table.istTermin'), t('table.status'),
+                t('table.pruefungsgegenstand'),
+                t('table.massnahme'),
+                t('table.autor'),
+                t('table.pruefer'),
+                t('table.planTermin'),
+                t('table.istTermin'),
+                t('table.status'),
+                t('table.bemerkungen') // ▼ Добавлен заголовок Remarks
             ],
         ],
         body: tableData.map(row => [
-            row.item, row.action, row.author, row.reviewer, row.planned_date,
+            stripHtml(row.item), // Очищаем от HTML, чтобы в PDF было красиво
+            row.action,
+            row.author,
+            row.reviewer,
+            row.planned_date,
             row.closed_date,
             t(`itemStatus.${row.status}`, { defaultValue: row.status }),
+            stripHtml(row.comment) // ▼ Добавлено поле Remarks (очищенное от HTML)
         ]),
         theme: 'striped',
         headStyles: { fillColor: [34, 51, 102], textColor: [255, 255, 255] },
-        styles: { fontSize: 7, cellPadding: 2, valign: 'middle' },
+        styles: { fontSize: 7, cellPadding: 2, valign: 'middle', overflow: 'linebreak' },
+        // ▼ Обновленные ширины колонок, чтобы вместить Remarks
         columnStyles: {
-            0: { cellWidth: 35 }, 1: { cellWidth: 35 }, 2: { cellWidth: 22 },
-            3: { cellWidth: 22 }, 4: { cellWidth: 22 }, 5: { cellWidth: 22 },
-            6: { cellWidth: 24 },
+            0: { cellWidth: 30 }, // item
+            1: { cellWidth: 30 }, // action
+            2: { cellWidth: 18 }, // author
+            3: { cellWidth: 18 }, // reviewer
+            4: { cellWidth: 18 }, // planned
+            5: { cellWidth: 18 }, // actual
+            6: { cellWidth: 20 }, // status
+            7: { cellWidth: 'auto' } // remarks занимают остальное место
         }
     });
 

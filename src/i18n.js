@@ -81,7 +81,7 @@ i18n
                             addInspectionItem: 'Add inspection item',
                             exportPDF: 'Export to PDF',
                             history: 'History',
-                            changeSettings: 'Change project settings',
+                            changeSettings: 'Change project status',
                         },
                         status: {
                             in_progress: 'In progress',
@@ -97,7 +97,7 @@ i18n
                         form: {
                             name: 'Project name',
                             nameMsg: 'Please enter the project name!',
-                            kunde: 'Customer (Kunde)',
+                            kunde: 'Customer',
                             kundeMsg: 'Please enter the customer!',
                             manager: 'Manager',
                             managerMsg: 'Please enter the manager!',
@@ -219,7 +219,7 @@ i18n
                         rejected: 'Abgelehnt',
                         pending: 'Wartet auf Genehmigung',
                         open: 'Offen',
-                        overdue: 'Überfällige Posten',
+                        overdue: 'Überfällige Aufgaben',
                     },
                     /* ---------- DASHBOARD ---------- */
                     dashboard: {
