@@ -1,7 +1,8 @@
 // src/pages/ProjectsListPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message, Popconfirm } from 'antd';
-import { PlusOutlined, LogoutOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message, Popconfirm, DatePicker, Space } from 'antd';
+import { PlusOutlined, LogoutOutlined, DeleteOutlined, CalendarOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons'; // Добавили иконки
+import dayjs from 'dayjs'; // Импорт dayjs для работы с датами
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
@@ -13,6 +14,7 @@ import apiClient from '../services/api';
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 export default function ProjectsListPage() {
     const { t } = useTranslation();
@@ -81,20 +83,61 @@ export default function ProjectsListPage() {
         return projects.filter(p => p.status !== 'finished');
     }, [projects]);
 
-    const [filters, setFilters] = useState({ q: '', kunde: 'all', status: 'all' });
+    const [filters, setFilters] = useState({
+        q: '',
+        kunde: 'all',
+        status: 'all',
+        sortBy: 'name_asc',
+        dateRange: null
+    });
+
     const kundeOptions = useMemo(() => {
         const set = new Set(activeProjects.map(p => p.kunde).filter(Boolean));
         return ['all', ...Array.from(set)];
     }, [activeProjects]);
+
     const filtered = useMemo(() => {
-        return activeProjects.filter(p => {
+        let result = activeProjects.filter(p => {
             const byQ = !filters.q || p.name.toLowerCase().includes(filters.q.toLowerCase()) || (p.kunde || '').toLowerCase().includes(filters.q.toLowerCase());
             const byKunde = filters.kunde === 'all' || p.kunde === filters.kunde;
             const byStatus = filters.status === 'all' || p.status === filters.status;
-            return byQ && byKunde && byStatus;
-        });
-    }, [activeProjects, filters]);
 
+            // Фильтр по дате (если задан диапазон)
+            let byDate = true;
+            if (filters.dateRange && p.planned_end_date) {
+                const start = filters.dateRange[0];
+                const end = filters.dateRange[1];
+                const pDate = dayjs(p.planned_end_date);
+                byDate = (pDate.isSame(start, 'day') || pDate.isAfter(start, 'day')) &&
+                    (pDate.isSame(end, 'day') || pDate.isBefore(end, 'day'));
+            } else if (filters.dateRange && !p.planned_end_date) {
+                // Если фильтр есть, а даты у проекта нет — скрываем (или показываем, зависит от логики)
+                byDate = false;
+            }
+
+            return byQ && byKunde && byStatus && byDate;
+        });
+
+        // Сортировка
+        result.sort((a, b) => {
+            if (filters.sortBy === 'name_asc') return a.name.localeCompare(b.name);
+            if (filters.sortBy === 'name_desc') return b.name.localeCompare(a.name);
+
+            if (filters.sortBy === 'date_asc') {
+                if (!a.planned_end_date) return 1; // Без даты — в конец
+                if (!b.planned_end_date) return -1;
+                return dayjs(a.planned_end_date).unix() - dayjs(b.planned_end_date).unix();
+            }
+            if (filters.sortBy === 'date_desc') {
+                if (!a.planned_end_date) return 1;
+                if (!b.planned_end_date) return -1;
+                return dayjs(b.planned_end_date).unix() - dayjs(a.planned_end_date).unix();
+            }
+            return 0;
+        });
+
+        return result;
+    }, [activeProjects, filters]);
 
     const canCreate = user?.role === 'auditor' || user?.role === 'admin';
 
@@ -147,17 +190,54 @@ export default function ProjectsListPage() {
                         )}
                     </Flex>
 
-                    <Flex wrap="wrap" gap="small" className="!mb-4">
-                        <Input allowClear placeholder={t('projects.filters.search')} value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} style={{ maxWidth: 240 }}/>
-                        <Select value={filters.kunde} onChange={v => setFilters(f => ({ ...f, kunde: v }))} style={{ width: 200 }}>
+                    <Flex wrap="wrap" gap="small" className="!mb-4" align="center">
+                        <Input
+                            allowClear
+                            placeholder={t('projects.filters.search')}
+                            value={filters.q}
+                            onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
+                            style={{ maxWidth: 200 }}
+                        />
+                        <Select
+                            value={filters.kunde}
+                            onChange={v => setFilters(f => ({ ...f, kunde: v }))}
+                            style={{ width: 160 }}
+                        >
                             {kundeOptions.map(k => (<Option key={k} value={k}>{k === 'all' ? t('projects.filters.kundeAll') : k}</Option>))}
                         </Select>
-                        <Select value={filters.status} onChange={v => setFilters(f => ({ ...f, status: v }))} style={{ width: 200 }}>
+                        <Select
+                            value={filters.status}
+                            onChange={v => setFilters(f => ({ ...f, status: v }))}
+                            style={{ width: 140 }}
+                        >
                             <Option value="all">{t('projects.filters.statusAll')}</Option>
                             <Option value="in_progress">{t('projects.status.in_progress')}</Option>
                             <Option value="on_hold">{t('projects.status.on_hold')}</Option>
                         </Select>
-                        <Button onClick={() => setFilters({ q: '', kunde: 'all', status: 'all' })}>{t('projects.filters.reset')}</Button>
+
+                        {/* Сортировка */}
+                        <Select
+                            value={filters.sortBy}
+                            onChange={v => setFilters(f => ({ ...f, sortBy: v }))}
+                            style={{ width: 180 }}
+                            options={[
+                                { value: 'name_asc', label: 'Name (A-Z)' },
+                                { value: 'name_desc', label: 'Name (Z-A)' },
+                                { value: 'date_asc', label: 'Date (Earliest)' },
+                                { value: 'date_desc', label: 'Date (Latest)' },
+                            ]}
+                        />
+
+                        {/* Фильтр по дате */}
+                        <RangePicker
+                            onChange={(dates) => setFilters(f => ({ ...f, dateRange: dates }))}
+                            style={{ maxWidth: 240 }}
+                            placeholder={['Start', 'End']}
+                        />
+
+                        <Button onClick={() => setFilters({ q: '', kunde: 'all', status: 'all', sortBy: 'name_asc', dateRange: null })}>
+                            {t('projects.filters.reset')}
+                        </Button>
                     </Flex>
 
                     <List
@@ -172,6 +252,11 @@ export default function ProjectsListPage() {
                                 actions={[
                                     <Tag key="kunde">{item.kunde || '—'}</Tag>,
                                     <Tag key="status" color={item.status === 'in_progress' ? 'geekblue' : 'gold'}>{t(`projects.status.${item.status}`, { defaultValue: item.status })}</Tag>,
+                                    item.planned_end_date && (
+                                        <Tag key="date" icon={<CalendarOutlined />} color="cyan">
+                                            {dayjs(item.planned_end_date).format('DD.MM.YYYY')}
+                                        </Tag>
+                                    ),
                                     user.role === 'admin' && (
                                         <Popconfirm
                                             key="delete"
@@ -196,7 +281,15 @@ export default function ProjectsListPage() {
                                 ]}
                             >
                                 <List.Item.Meta
-                                    title={item.name}
+                                    title={<Space>
+                                        {item.name}
+                                        {/* Можно добавить индикатор, если дата просрочена */}
+                                        {item.planned_end_date && dayjs(item.planned_end_date).isBefore(dayjs(), 'day') && item.status !== 'finished' && (
+                                            <Tag color="error">
+                                                {t('projects.overdue', { defaultValue: 'Overdue' })}
+                                            </Tag>
+                                        )}
+                                    </Space>}
                                     description={`${t('projects.manager', { defaultValue: 'Manager' })}: ${item.manager || '—'}`}
                                 />
                             </List.Item>
