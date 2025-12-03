@@ -26,7 +26,7 @@ const downloadFile = (blob, filename) => {
 
 
 // Меняем fetchItems на onItemsUpdate
-const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isExporting }, ref) => {
+const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isExporting, isArchived }, ref) => {
     const { t } = useTranslation();
     const { projectId } = useParams();
     const { user } = useAuth();
@@ -342,8 +342,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
 
     return (
         <div ref={ref}>
-            {isAuditor && !isExporting && (
-                // ▼▼▼ ЗАМЕНА КЛЮЧА ▼▼▼
+            {isAuditor && !isExporting && !isArchived && (
                 <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} className="!mb-3">
                     {t('projects.detail.addInspectionItem')}
                 </Button>

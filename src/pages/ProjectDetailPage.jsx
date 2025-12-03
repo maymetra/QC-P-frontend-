@@ -252,6 +252,7 @@ export default function ProjectDetailPage() {
                         loading={loadingItems}
                         fetchItems={handleItemsUpdate}
                         isExporting={isExporting}
+                        isArchived={project?.status === 'finished'}
                     />
 
                     <Modal
