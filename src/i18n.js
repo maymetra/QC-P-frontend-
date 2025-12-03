@@ -77,6 +77,7 @@ i18n
                         create: 'Create Project',
                         manager: 'Manager',
                         notFound: 'Project not found',
+                        overdue: 'Overdue',
                         detail: {
                             addInspectionItem: 'Add inspection item',
                             exportPDF: 'Export to PDF',
@@ -260,6 +261,7 @@ i18n
                         create: 'Projekt erstellen',
                         manager: 'Manager',
                         notFound: 'Projekt nicht gefunden',
+                        overdue: 'Überfällig',
                         detail: {
                             addInspectionItem: 'Prüfgegenstand hinzufügen',
                             exportPDF: 'PDF exportieren',
