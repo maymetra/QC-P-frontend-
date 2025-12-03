@@ -343,8 +343,9 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     return (
         <div ref={ref}>
             {isAuditor && !isExporting && (
+                // ▼▼▼ ЗАМЕНА КЛЮЧА ▼▼▼
                 <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} className="!mb-3">
-                    {t('Add inspection item', { defaultValue: 'Add inspection item' })}
+                    {t('projects.detail.addInspectionItem')}
                 </Button>
             )}
 
@@ -357,7 +358,8 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 pagination={false}
             />
 
-            <Modal title={t('Add inspection item', { defaultValue: 'Add inspection item' })} open={addOpen} onCancel={() => setAddOpen(false)} onOk={addForm.submit} okText={t('common.createOk', { defaultValue: 'Create' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
+            {/* ▼▼▼ ЗАМЕНА КЛЮЧА В МОДАЛКЕ ▼▼▼ */}
+            <Modal title={t('projects.detail.addInspectionItem')} open={addOpen} onCancel={() => setAddOpen(false)} onOk={addForm.submit} okText={t('common.createOk', { defaultValue: 'Create' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
                 <Form layout="vertical" form={addForm} onFinish={onAddFinish} initialValues={{ addMode: 'new' }}>
                     <Form.Item name="addMode" label={t('Source', {defaultValue: 'Source'})}><Radio.Group onChange={(e) => setAddMode(e.target.value)}><Radio.Button value="new">{t('Create New', {defaultValue: 'Create New'})}</Radio.Button><Radio.Button value="select">{t('Select from KB', {defaultValue: 'Select from KB'})}</Radio.Button></Radio.Group></Form.Item>
                     {addMode === 'new' ? (
@@ -403,6 +405,4 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     );
 });
 
-// --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-// Используем 'export default'
 export default JirasTable;

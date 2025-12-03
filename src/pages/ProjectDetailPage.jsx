@@ -3,8 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout, Typography, Button, Space, Tag, Modal, List, Radio, message, Spin, AutoComplete, Select } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
 import NavigationTab from '../components/NavigationTab';
-// --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-import JirasTable from '../components/JirasTable'; // <-- Без фигурных скобок
+import JirasTable from '../components/JirasTable';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { useAuth } from '../context/AuthContext';
 import { LogoutOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
@@ -223,13 +222,19 @@ export default function ProjectDetailPage() {
                         <Title level={2} className="!mb-0">QS-Plan: {project ? project.name : t('projects.notFound')}</Title>
                         {project && (
                             <Space>
+                                {/* ▼▼▼ ПРИМЕНЕНИЕ НОВЫХ КЛЮЧЕЙ ▼▼▼ */}
                                 <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} loading={isExporting}>
-                                    {t('Export to PDF', { defaultValue: 'Export to PDF' })}
+                                    {t('projects.detail.exportPDF')}
                                 </Button>
                                 <Button icon={<HistoryOutlined />} onClick={openHistoryModal}>
-                                    {t('History', { defaultValue: 'History' })}
+                                    {t('projects.detail.history')}
                                 </Button>
-                                {canChangeProjectStatus && <Button type="primary" onClick={openStatusModal}>{t('Change project settings')}</Button>}
+                                {canChangeProjectStatus && (
+                                    <Button type="primary" onClick={openStatusModal}>
+                                        {t('projects.detail.changeSettings')}
+                                    </Button>
+                                )}
+                                {/* ▲▲▲ КОНЕЦ ИЗМЕНЕНИЙ ▲▲▲ */}
                             </Space>
                         )}
                     </Space>
@@ -250,11 +255,11 @@ export default function ProjectDetailPage() {
                     />
 
                     <Modal
-                        title={t('Change project settings')}
+                        title={t('projects.detail.changeSettings')} // <-- И здесь тоже
                         open={statusModal}
                         onCancel={() => setStatusModal(false)}
                         onOk={saveStatus}
-                        okText={t('Save')}
+                        okText={t('usersPage.addUserModal.save')}
                         cancelText={t('common.cancel')}
                     >
                         <Space direction="vertical" style={{width: '100%'}}>
@@ -285,7 +290,7 @@ export default function ProjectDetailPage() {
                         </Space>
                     </Modal>
 
-                    <Modal title={t('History')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null} width={600}>
+                    <Modal title={t('projects.detail.history')} open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null} width={600}>
                         <Spin spinning={historyLoading}>
                             <List
                                 dataSource={historyEvents}

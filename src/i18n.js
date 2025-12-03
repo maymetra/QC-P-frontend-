@@ -77,6 +77,12 @@ i18n
                         create: 'Create Project',
                         manager: 'Manager',
                         notFound: 'Project not found',
+                        detail: {
+                            addInspectionItem: 'Add inspection item',
+                            exportPDF: 'Export to PDF',
+                            history: 'History',
+                            changeSettings: 'Change project settings',
+                        },
                         status: {
                             in_progress: 'In progress',
                             finished: 'Finished',
@@ -171,7 +177,7 @@ i18n
                             itemMsg: 'Please enter the item text!',
                         }
                     },
-                    // --- НОВАЯ СЕКЦИЯ ---
+                    /* ---------- HISTORY EVENTS ---------- */
                     historyEvent: {
                         project_created: 'Project Created',
                         project_status_updated: 'Project Status Updated',
@@ -254,6 +260,12 @@ i18n
                         create: 'Projekt erstellen',
                         manager: 'Manager',
                         notFound: 'Projekt nicht gefunden',
+                        detail: {
+                            addInspectionItem: 'Prüfgegenstand hinzufügen',
+                            exportPDF: 'PDF exportieren',
+                            history: 'Historie',
+                            changeSettings: 'Projektstatus ändern',
+                        },
                         status: {
                             in_progress: 'In Bearbeitung',
                             finished: 'Abgeschlossen',
@@ -347,7 +359,7 @@ i18n
                             itemMsg: 'Bitte geben Sie den Text des Eintrags ein!',
                         }
                     },
-                    // --- НОВАЯ СЕКЦИЯ ---
+                    /* ---------- HISTORY EVENTS ---------- */
                     historyEvent: {
                         project_created: 'Projekt erstellt',
                         project_status_updated: 'Projektstatus geändert',
