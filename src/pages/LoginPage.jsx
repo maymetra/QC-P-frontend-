@@ -9,6 +9,9 @@ export default function LoginPage() {
                 <LanguageSwitch />
             </div>
             <LoginForm />
+            <div className="absolute bottom-4 text-gray-500 text-sm">
+                QC-P 0.9.3
+            </div>
         </div>
     );
 }
