@@ -417,9 +417,13 @@ i18n
                 },
             },
         },
-        lng: 'de',
+        lng: localStorage.getItem('i18nextLng') || 'de',
         fallbackLng: 'en',
         interpolation: { escapeValue: false },
     });
+
+i18n.on('languageChanged', (lng) => {
+    localStorage.setItem('i18nextLng', lng);
+});
 
 export default i18n;
