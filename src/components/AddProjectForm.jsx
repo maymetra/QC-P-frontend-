@@ -23,9 +23,9 @@ export default function AddProjectForm({ form, onFinish, initialValues, managers
         >
             <Form.Item
                 name="template"
-                label={t('settingsPage.templates.title', {defaultValue: 'Template'})}
+                label={t('settingsPage.templates.title', { defaultValue: 'Template' })}
             >
-                <Select allowClear placeholder={t('settingsPage.templates.select', {defaultValue: 'Optional: Select a template to pre-fill items'})}>
+                <Select allowClear placeholder={t('settingsPage.templates.select', { defaultValue: 'Optional: Select a template to pre-fill items' })}>
                     {templates.map(t => <Option key={t.name} value={t.name}>{t.name}</Option>)}
                 </Select>
             </Form.Item>
@@ -33,27 +33,61 @@ export default function AddProjectForm({ form, onFinish, initialValues, managers
             {selectedTemplate && (
                 <Form.Item
                     name="basePlannedDate"
-                    label={t('projects.form.basePlannedDate', {defaultValue: 'Base Planned Date for Template Items'})}
-                    rules={[{ required: true, message: t('projects.form.basePlannedDateMsg', {defaultValue: 'Please select a base planned date'}) }]}
+                    label={t('projects.form.basePlannedDate', { defaultValue: 'Base Planned Date for Template Items' })}
+                    rules={[{ required: true, message: t('projects.form.basePlannedDateMsg', { defaultValue: 'Please select a base planned date' }) }]}
                 >
                     <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
             )}
 
             <Form.Item
-                name="name"
-                label={t('projects.form.name')}
-                rules={[{ required: true, message: t('projects.form.nameMsg') }]}
+                name="kunde"
+                label={t('projects.form.kunde', { defaultValue: 'Customer' })}
+                rules={[{ required: true, message: t('projects.form.kundeMsg') }]}
             >
-                <Input />
+                <Input placeholder="E.ON" />
             </Form.Item>
 
             <Form.Item
-                name="kunde"
-                label={t('projects.form.kunde')}
-                rules={[{ required: true, message: t('projects.form.kundeMsg') }]}
+                name="projectId"
+                label={t('projects.form.projectId', { defaultValue: 'Project Name/Number/ID' })}
+                rules={[{ required: true, message: t('projects.form.projectIdMsg', { defaultValue: 'Please enter project ID' }) }]}
             >
-                <Input />
+                <Input placeholder="001" />
+            </Form.Item>
+
+            <div style={{ display: 'flex', gap: '16px' }}>
+                <Form.Item
+                    name="quarter"
+                    label={t('projects.form.quarter', { defaultValue: 'Quarter' })}
+                    rules={[{ required: true, message: t('projects.form.quarterMsg', { defaultValue: 'Select quarter' }) }]}
+                    style={{ flex: 1 }}
+                >
+                    <Select placeholder="Q1">
+                        <Option value="Q1">Q1</Option>
+                        <Option value="Q2">Q2</Option>
+                        <Option value="Q3">Q3</Option>
+                        <Option value="Q4">Q4</Option>
+                    </Select>
+                </Form.Item>
+
+                <Form.Item
+                    name="year"
+                    label={t('projects.form.year', { defaultValue: 'Year' })}
+                    rules={[{ required: true, message: t('projects.form.yearMsg', { defaultValue: 'Enter year' }) }]}
+                    style={{ flex: 1 }}
+                    initialValue={new Date().getFullYear().toString()}
+                >
+                    <Input placeholder="2026" />
+                </Form.Item>
+            </div>
+
+            <Form.Item
+                name="department"
+                label={t('projects.form.department', { defaultValue: 'Department' })}
+                rules={[{ required: true, message: t('projects.form.departmentMsg', { defaultValue: 'Please enter department' }) }]}
+            >
+                <Input placeholder="Produktentwicklung" />
             </Form.Item>
 
             {/* Используем AutoComplete, чтобы можно было ввести новое имя */}

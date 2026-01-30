@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
             // Загружаем счетчик сразу после логина
             fetchNotificationCount(userData);
 
-            if (userData.role === 'admin' || userData.role === 'auditor') {
+            if (userData.role === 'admin' || userData.role === 'auditor' || userData.role === 'manager') {
                 navigate('/dashboard');
             } else {
                 navigate('/projects');

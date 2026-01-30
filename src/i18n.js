@@ -8,7 +8,7 @@ i18n
         resources: {
             en: {
                 translation: {
-                    common: { cancel: 'Cancel', createOk: 'Create', locale: 'en-US' },
+                    common: { cancel: 'Cancel', createOk: 'Create', locale: 'en-US', yes: 'Yes', no: 'No' },
                     /* ---------- MENU ---------- */
                     menu: {
                         projects: 'Projects',
@@ -29,6 +29,7 @@ i18n
                         dokument: 'Document',
                         status: 'Status',
                         bemerkungen: 'Remarks',
+                        action: 'Actions',
                     },
                     /* ---------- DASHBOARD ---------- */
                     dashboard: {
@@ -78,11 +79,14 @@ i18n
                         manager: 'Manager',
                         notFound: 'Project not found',
                         overdue: 'Overdue',
+                        deleteConfirmTitle: 'Delete the project?',
+                        deleteConfirmDesc: 'Are you sure you want to delete this project?',
                         detail: {
                             addInspectionItem: 'Add inspection item',
                             exportPDF: 'Export to PDF',
                             history: 'History',
                             changeSettings: 'Change project status',
+                            deleteItemConfirm: 'Delete this item?',
                         },
                         status: {
                             in_progress: 'In progress',
@@ -90,7 +94,7 @@ i18n
                             on_hold: 'On hold',
                         },
                         filters: {
-                            search: 'Search by name or customer',
+                            search: 'Search...',
                             kundeAll: 'All customers',
                             statusAll: 'All statuses',
                             reset: 'Reset filters',
@@ -106,7 +110,14 @@ i18n
                             statusMsg: 'Please select the status!',
                             basePlannedDate: 'Base Planned Date for Template Items',
                             basePlannedDateMsg: 'Please select a base planned date',
-
+                            projectId: 'Project Name/Number/ID',
+                            projectIdMsg: 'Please enter project ID',
+                            quarter: 'Quarter',
+                            quarterMsg: 'Select quarter',
+                            year: 'Year',
+                            yearMsg: 'Enter year',
+                            department: 'Department',
+                            departmentMsg: 'Please enter department',
                         },
                     },
                     /* ---------- USERS PAGE ---------- */
@@ -176,6 +187,15 @@ i18n
                             categoryPlaceholder: 'Select or type a new category',
                             itemLabel: 'Item Text',
                             itemMsg: 'Please enter the item text!',
+                            manageItems: 'Manage Inspection Items',
+                            addNewItem: 'Add New Item',
+                            editItem: 'Edit Item',
+                            itemDeleted: 'Item deleted',
+                            itemUpdated: 'Item updated',
+                            itemCreated: 'Item created',
+                            failedToSave: 'Failed to save item',
+                            failedToDelete: 'Failed to delete item',
+                            deleteItemConfirm: 'Delete this item?',
                         }
                     },
                     /* ---------- HISTORY EVENTS ---------- */
@@ -188,11 +208,12 @@ i18n
                         item_status_updated: 'Item Status Updated',
                         file_uploaded: 'File Uploaded'
                     },
+                    goToProject: 'Go to project',
                 },
             },
             de: {
                 translation: {
-                    common: { cancel: 'Abbrechen', createOk: 'Erstellen', locale: 'de-DE' },
+                    common: { cancel: 'Abbrechen', createOk: 'Erstellen', locale: 'de-DE', yes: 'Ja', no: 'Nein' },
                     /* ---------- MENU ---------- */
                     menu: {
                         projects: 'Projekte',
@@ -213,6 +234,7 @@ i18n
                         dokument: 'Dokument',
                         status: 'Status',
                         bemerkungen: 'Bemerkungen',
+                        action: 'Aktionen',
                     },
                     /* ---------- ITEM STATUSES ---------- */
                     itemStatus: {
@@ -262,11 +284,14 @@ i18n
                         manager: 'Manager',
                         notFound: 'Projekt nicht gefunden',
                         overdue: 'Überfällig',
+                        deleteConfirmTitle: 'Projekt löschen?',
+                        deleteConfirmDesc: 'Sind Sie sicher, dass Sie dieses Projekt löschen möchten?',
                         detail: {
                             addInspectionItem: 'Prüfgegenstand hinzufügen',
                             exportPDF: 'PDF exportieren',
                             history: 'Historie',
                             changeSettings: 'Projektstatus ändern',
+                            deleteItemConfirm: 'Diesen Eintrag löschen?',
                         },
                         status: {
                             in_progress: 'In Bearbeitung',
@@ -274,7 +299,7 @@ i18n
                             on_hold: 'Pausiert',
                         },
                         filters: {
-                            search: 'Suche nach Name oder Kunde',
+                            search: 'Suchen...',
                             kundeAll: 'Alle Kunden',
                             statusAll: 'Alle Status',
                             reset: 'Filter zurücksetzen',
@@ -290,6 +315,14 @@ i18n
                             statusMsg: 'Bitte wählen Sie den Status!',
                             basePlannedDate: 'Geplantes Startdatum für Vorlagenpunkte',
                             basePlannedDateMsg: 'Bitte wählen Sie ein geplantes Startdatum',
+                            projectId: 'Projekt Name/Nummer/ID',
+                            projectIdMsg: 'Bitte geben Sie eine Projekt-ID ein',
+                            quarter: 'Quartal',
+                            quarterMsg: 'Bitte Quartal wählen',
+                            year: 'Jahr',
+                            yearMsg: 'Bitte Jahr eingeben',
+                            department: 'Abteilung',
+                            departmentMsg: 'Bitte Abteilung eingeben',
                         },
                     },
                     /* ---------- USERS PAGE ---------- */
@@ -359,6 +392,15 @@ i18n
                             categoryPlaceholder: 'Wählen oder tippen Sie eine neue Kategorie',
                             itemLabel: 'Eintragstext',
                             itemMsg: 'Bitte geben Sie den Text des Eintrags ein!',
+                            manageItems: 'Prüfpositionen verwalten',
+                            addNewItem: 'Neuen Eintrag hinzufügen',
+                            editItem: 'Eintrag bearbeiten',
+                            itemDeleted: 'Eintrag gelöscht',
+                            itemUpdated: 'Eintrag aktualisiert',
+                            itemCreated: 'Eintrag erstellt',
+                            failedToSave: 'Fehler beim Speichern des Eintrags',
+                            failedToDelete: 'Fehler beim Löschen des Eintrags',
+                            deleteItemConfirm: 'Diesen Eintrag löschen?',
                         }
                     },
                     /* ---------- HISTORY EVENTS ---------- */
@@ -371,6 +413,7 @@ i18n
                         item_status_updated: 'Eintrag-Status geändert',
                         file_uploaded: 'Datei hochgeladen'
                     },
+                    goToProject: 'Zum Projekt',
                 },
             },
         },

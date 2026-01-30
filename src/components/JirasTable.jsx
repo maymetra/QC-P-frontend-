@@ -76,7 +76,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     const onAddFinish = async (values) => {
         const itemText = values.addMode === 'new' ? values.newItemText : values.selectedItem;
         if (!itemText) {
-            message.error(t('Please select or enter an inspection item.', {defaultValue: 'Please select or enter an inspection item.'}));
+            message.error(t('Please select or enter an inspection item.', { defaultValue: 'Please select or enter an inspection item.' }));
             return;
         }
         const payload = {
@@ -97,7 +97,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
     const handleDelete = async (itemId) => {
         try {
             await apiClient.delete(`/projects/${projectId}/items/${itemId}`);
-            message.success(t('Item deleted.', {defaultValue: 'Item deleted.'}));
+            message.success(t('Item deleted.', { defaultValue: 'Item deleted.' }));
             onItemsUpdate();
         } catch (error) {
             message.error(t('Failed to delete item'));
@@ -249,14 +249,52 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
         return category ? category.items : [];
     }, [selectedCategory, knowledgeBase]);
 
+    const [searchText, setSearchText] = useState('');
+
+    const filteredItems = useMemo(() => {
+        if (!searchText) return items;
+        const lower = searchText.toLowerCase();
+        return items.filter(i => {
+            return (
+                (i.item || '').toLowerCase().includes(lower) ||
+                (i.action || '').toLowerCase().includes(lower) ||
+                (i.author || '').toLowerCase().includes(lower) ||
+                (i.reviewer || '').toLowerCase().includes(lower) ||
+                (i.status || '').toLowerCase().includes(lower) ||
+                (i.comment || '').toLowerCase().includes(lower)
+            );
+        });
+    }, [items, searchText]);
+
+    const authorFilters = useMemo(() => {
+        const authors = new Set(items.map(i => i.author).filter(Boolean));
+        return Array.from(authors).map(a => ({ text: a, value: a }));
+    }, [items]);
+
+    const reviewerFilters = useMemo(() => {
+        const reviewers = new Set(items.map(i => i.reviewer).filter(Boolean));
+        return Array.from(reviewers).map(r => ({ text: r, value: r }));
+    }, [items]);
+
     let columns = [
         { title: t('table.pruefungsgegenstand'), dataIndex: 'item', sorter: (a, b) => (a.item || '').localeCompare(b.item || ''), render: (text) => <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} /> },
         {
             title: t('table.massnahme'), dataIndex: 'action',
             render: (text, record) => (isExporting ? text : <Space><span>{text}</span>{isManager && <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)} />}</Space>)
         },
-        { title: t('table.autor'), dataIndex: 'author', sorter: (a, b) => (a.author || '').localeCompare(b.author || '')},
-        { title: t('table.pruefer'), dataIndex: 'reviewer' },
+        {
+            title: t('table.autor'),
+            dataIndex: 'author',
+            sorter: (a, b) => (a.author || '').localeCompare(b.author || ''),
+            filters: !isExporting ? authorFilters : null,
+            onFilter: (value, record) => record.author === value
+        },
+        {
+            title: t('table.pruefer'),
+            dataIndex: 'reviewer',
+            filters: !isExporting ? reviewerFilters : null,
+            onFilter: (value, record) => record.reviewer === value
+        },
         { title: t('table.planTermin'), dataIndex: 'planned_date', sorter: (a, b) => dayjs(a.planned_date).unix() - dayjs(b.planned_date).unix() },
         { title: t('table.istTermin'), dataIndex: 'closed_date', sorter: (a, b) => dayjs(a.closed_date).unix() - dayjs(b.closed_date).unix() },
         {
@@ -278,7 +316,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 return (
                     <div>
                         {fileList}
-                        {isManager && !isExporting && <Button type="dashed" size="small" icon={<EditOutlined />} onClick={() => openDocUpload(record)} style={{marginTop: '8px'}}>{t('Edit')}</Button>}
+                        {isManager && !isExporting && <Button type="dashed" size="small" icon={<EditOutlined />} onClick={() => openDocUpload(record)} style={{ marginTop: '8px' }}>{t('Edit')}</Button>}
                     </div>
                 );
             }
@@ -298,7 +336,7 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
                 }
                 return tag;
             },
-            filters: !isExporting ? [{ text: t('itemStatus.approved'), value: 'approved' }, { text: t('itemStatus.rejected'), value: 'rejected' }, { text: t('itemStatus.pending'),  value: 'pending' }, { text: t('itemStatus.open'), value: 'open' }] : null, onFilter: (v, r) => r.status === v
+            filters: !isExporting ? [{ text: t('itemStatus.approved'), value: 'approved' }, { text: t('itemStatus.rejected'), value: 'rejected' }, { text: t('itemStatus.pending'), value: 'pending' }, { text: t('itemStatus.open'), value: 'open' }] : null, onFilter: (v, r) => r.status === v
         },
         {
             title: t('table.bemerkungen'), dataIndex: 'comment',
@@ -310,12 +348,12 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
 
                         {hasAttachments && (
                             <List size="small" dataSource={record.attachments} renderItem={(file) => (
-                                <List.Item style={{padding: '4px 0'}}>
+                                <List.Item style={{ padding: '4px 0' }}>
                                     <Button type="link" icon={<PaperClipOutlined />} onClick={() => handleDownload(record, file)} style={{ padding: 0 }}>
                                         {file.name}
                                     </Button>
                                 </List.Item>
-                            )}/>
+                            )} />
                         )}
                     </div>
                 );
@@ -326,10 +364,10 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
             }
         },
         {
-            title: t('Actions', {defaultValue: 'Actions'}), key: 'actions',
+            title: t('table.action', { defaultValue: 'Actions' }), key: 'actions',
             render: (_, record) => {
                 if (isAuditor && !isExporting) {
-                    return <Popconfirm title={t('Delete this item?', {defaultValue: 'Delete this item?'})} onConfirm={() => handleDelete(record.id)} okText={t('Yes')} cancelText={t('No')}><Button danger icon={<DeleteOutlined />} size="small" /></Popconfirm>;
+                    return <Popconfirm title={t('projects.detail.deleteItemConfirm', { defaultValue: 'Delete this item?' })} onConfirm={() => handleDelete(record.id)} okText={t('common.yes', { defaultValue: 'Yes' })} cancelText={t('common.no', { defaultValue: 'No' })}><Button danger icon={<DeleteOutlined />} size="small" /></Popconfirm>;
                 }
                 return null;
             }
@@ -342,15 +380,26 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
 
     return (
         <div ref={ref}>
-            {isAuditor && !isExporting && !isArchived && (
-                <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} className="!mb-3">
-                    {t('projects.detail.addInspectionItem')}
-                </Button>
+            {!isExporting && (
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+                    <Input
+                        placeholder={t('projects.filters.search', { defaultValue: 'Search...' })}
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        style={{ maxWidth: 300 }}
+                        allowClear
+                    />
+                    {isAuditor && !isExporting && !isArchived && (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+                            {t('projects.detail.addInspectionItem')}
+                        </Button>
+                    )}
+                </div>
             )}
 
             <Table
                 columns={columns}
-                dataSource={items}
+                dataSource={filteredItems}
                 rowKey="id"
                 loading={loading}
                 scroll={{ x: true }}
@@ -360,13 +409,13 @@ const JirasTable = forwardRef(({ items, loading, fetchItems: onItemsUpdate, isEx
             {/* ▼▼▼ ЗАМЕНА КЛЮЧА В МОДАЛКЕ ▼▼▼ */}
             <Modal title={t('projects.detail.addInspectionItem')} open={addOpen} onCancel={() => setAddOpen(false)} onOk={addForm.submit} okText={t('common.createOk', { defaultValue: 'Create' })} cancelText={t('common.cancel', { defaultValue: 'Cancel' })}>
                 <Form layout="vertical" form={addForm} onFinish={onAddFinish} initialValues={{ addMode: 'new' }}>
-                    <Form.Item name="addMode" label={t('Source', {defaultValue: 'Source'})}><Radio.Group onChange={(e) => setAddMode(e.target.value)}><Radio.Button value="new">{t('Create New', {defaultValue: 'Create New'})}</Radio.Button><Radio.Button value="select">{t('Select from KB', {defaultValue: 'Select from KB'})}</Radio.Button></Radio.Group></Form.Item>
+                    <Form.Item name="addMode" label={t('Source', { defaultValue: 'Source' })}><Radio.Group onChange={(e) => setAddMode(e.target.value)}><Radio.Button value="new">{t('Create New', { defaultValue: 'Create New' })}</Radio.Button><Radio.Button value="select">{t('Select from KB', { defaultValue: 'Select from KB' })}</Radio.Button></Radio.Group></Form.Item>
                     {addMode === 'new' ? (
-                        <Form.Item name="newItemText" label={t('table.pruefungsgegenstand')} rules={[{ required: true, message: t('Please enter item text', {defaultValue: 'Please enter item text'}) }]}><Input.TextArea rows={3} /></Form.Item>
+                        <Form.Item name="newItemText" label={t('table.pruefungsgegenstand')} rules={[{ required: true, message: t('Please enter item text', { defaultValue: 'Please enter item text' }) }]}><Input.TextArea rows={3} /></Form.Item>
                     ) : (
                         <>
-                            <Form.Item name="category" label={t('Category', {defaultValue: 'Category'})} rules={[{ required: true, message: t('Please select a category', {defaultValue: 'Please select a category'})}]}><Select showSearch placeholder={t('Select a category', {defaultValue: 'Select a category'})} loading={loadingKB} onChange={(value) => { setSelectedCategory(value); addForm.resetFields(['selectedItem']); }}>{knowledgeBase.map(c => <Option key={c.category} value={c.category}>{c.category}</Option>)}</Select></Form.Item>
-                            <Form.Item name="selectedItem" label={t('table.pruefungsgegenstand')} rules={[{ required: true, message: t('Please select an item', {defaultValue: 'Please select an item'})}]}><Select showSearch placeholder={t('Select an item', {defaultValue: 'Select an item'})} disabled={!selectedCategory}>{availableItems.map(item => <Option key={item} value={item}>{item}</Option>)}</Select></Form.Item>
+                            <Form.Item name="category" label={t('Category', { defaultValue: 'Category' })} rules={[{ required: true, message: t('Please select a category', { defaultValue: 'Please select a category' }) }]}><Select showSearch placeholder={t('Select a category', { defaultValue: 'Select a category' })} loading={loadingKB} onChange={(value) => { setSelectedCategory(value); addForm.resetFields(['selectedItem']); }}>{knowledgeBase.map(c => <Option key={c.category} value={c.category}>{c.category}</Option>)}</Select></Form.Item>
+                            <Form.Item name="selectedItem" label={t('table.pruefungsgegenstand')} rules={[{ required: true, message: t('Please select an item', { defaultValue: 'Please select an item' }) }]}><Select showSearch placeholder={t('Select an item', { defaultValue: 'Select an item' })} disabled={!selectedCategory}>{availableItems.map(item => <Option key={item} value={item}>{item}</Option>)}</Select></Form.Item>
                         </>
                     )}
                     <Form.Item name="plannedDate" label={t('table.planTermin')} rules={[{ required: true, message: t('Please select planned date', { defaultValue: 'Please select planned date' }) }]}><DatePicker style={{ width: '100%' }} /></Form.Item>

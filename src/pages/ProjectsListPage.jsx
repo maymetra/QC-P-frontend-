@@ -1,7 +1,7 @@
 // src/pages/ProjectsListPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message, Popconfirm, DatePicker, Space } from 'antd';
-import { PlusOutlined, LogoutOutlined, DeleteOutlined, CalendarOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons'; // Добавили иконки
+import { Layout, Typography, Button, Flex, List, Tag, Modal, Form, Input, Select, message, Popconfirm, DatePicker, Space, Radio, Table } from 'antd';
+import { PlusOutlined, LogoutOutlined, DeleteOutlined, CalendarOutlined, SortAscendingOutlined, SortDescendingOutlined, AppstoreOutlined, BarsOutlined } from '@ant-design/icons'; // Добавили иконки
 import dayjs from 'dayjs'; // Импорт dayjs для работы с датами
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -83,13 +83,31 @@ export default function ProjectsListPage() {
         return projects.filter(p => p.status !== 'finished');
     }, [projects]);
 
-    const [filters, setFilters] = useState({
-        q: '',
-        kunde: 'all',
-        status: 'all',
-        sortBy: 'name_asc',
-        dateRange: null
+    const [filters, setFilters] = useState(() => {
+        const saved = sessionStorage.getItem('projects_filters');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.dateRange) {
+                    parsed.dateRange = [dayjs(parsed.dateRange[0]), dayjs(parsed.dateRange[1])];
+                }
+                return parsed;
+            } catch (e) {
+                console.error("Failed to parse filters", e);
+            }
+        }
+        return {
+            q: '',
+            kunde: 'all',
+            status: 'all',
+            sortBy: 'name_asc',
+            dateRange: null
+        };
     });
+
+    useEffect(() => {
+        sessionStorage.setItem('projects_filters', JSON.stringify(filters));
+    }, [filters]);
 
     const kundeOptions = useMemo(() => {
         const set = new Set(activeProjects.map(p => p.kunde).filter(Boolean));
@@ -147,8 +165,14 @@ export default function ProjectsListPage() {
     };
 
     const handleCreate = async (values) => {
+        // [Customer]_[ID]_[Quarter]_[Year]_[Department]
+        const generatedName = `${values.kunde}_${values.projectId}_${values.quarter}_${values.year}_${values.department}`;
+
         const payload = {
-            ...values,
+            name: generatedName,
+            kunde: values.kunde,
+            manager: values.manager,
+            template: values.template,
             basePlannedDate: values.basePlannedDate ? values.basePlannedDate.format('YYYY-MM-DD') : null,
         };
 
@@ -163,6 +187,95 @@ export default function ProjectsListPage() {
             message.error(errorMsg);
         }
     };
+
+    const [viewMode, setViewMode] = useState(() => sessionStorage.getItem('projects_view_mode') || 'list');
+
+    useEffect(() => {
+        sessionStorage.setItem('projects_view_mode', viewMode);
+    }, [viewMode]);
+
+    const colors = { in_progress: 'geekblue', finished: 'green', on_hold: 'gold' };
+
+    const tableColumns = [
+        {
+            title: t('projects.form.name', { defaultValue: 'Project name' }),
+            dataIndex: 'name',
+            key: 'name',
+            render: (text, record) => (
+                <Space>
+                    <a onClick={() => navigate(`/projects/${record.id}`)}>{text}</a>
+                    {record.planned_end_date && dayjs(record.planned_end_date).isBefore(dayjs(), 'day') && record.status !== 'finished' && (
+                        <Tag color="error">{t('projects.overdue', { defaultValue: 'Overdue' })}</Tag>
+                    )}
+                </Space>
+            ),
+        },
+        {
+            title: t('projects.form.kunde', { defaultValue: 'Customer' }),
+            dataIndex: 'kunde',
+            key: 'kunde',
+        },
+        {
+            title: t('projects.form.manager', { defaultValue: 'Manager' }),
+            dataIndex: 'manager',
+            key: 'manager',
+        },
+        {
+            title: t('projects.status.title', { defaultValue: 'Status' }),
+            dataIndex: 'status',
+            key: 'status',
+            render: (status) => <Tag color={colors[status] || 'default'}>{t(`projects.status.${status}`, { defaultValue: status })}</Tag>
+        },
+        {
+            title: t('table.planTermin', { defaultValue: 'Planned Date' }),
+            dataIndex: 'planned_end_date',
+            key: 'planned_end_date',
+            render: (date) => date ? dayjs(date).format('DD.MM.YYYY') : ''
+        },
+        {
+            title: t('table.action', { defaultValue: 'Actions' }),
+            key: 'action',
+            render: (_, record) => (
+                user.role === 'admin' ? (
+                    <Popconfirm
+                        title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
+                        description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
+                        onConfirm={(e) => { e.stopPropagation(); handleDelete(record.id); }}
+                        onCancel={(e) => e.stopPropagation()}
+                        okText={t('common.yes', { defaultValue: 'Yes' })}
+                        cancelText={t('common.no', { defaultValue: 'No' })}
+                    >
+                        <Button danger icon={<DeleteOutlined />} size="small" onClick={(e) => e.stopPropagation()} />
+                    </Popconfirm>
+                ) : null
+            )
+        }
+    ];
+
+    const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+
+    const onSelectChange = (newSelectedRowKeys) => {
+        setSelectedRowKeys(newSelectedRowKeys);
+    };
+
+    const rowSelection = {
+        selectedRowKeys,
+        onChange: onSelectChange,
+    };
+
+    const handleBulkDelete = async () => {
+        try {
+            await apiClient.post('/projects/bulk-delete', selectedRowKeys);
+            message.success(t('projects.deleteSuccess', { defaultValue: 'Projects deleted successfully' }));
+            setSelectedRowKeys([]);
+            fetchProjects();
+        } catch (error) {
+            console.error("Failed to delete projects", error);
+            message.error(t('projects.deleteError', { defaultValue: 'Failed to delete projects' }));
+        }
+    };
+
+    const hasSelected = selectedRowKeys.length > 0;
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -183,11 +296,26 @@ export default function ProjectsListPage() {
                 <Content className="p-6 bg-gray-50">
                     <Flex justify="space-between" align="center" className="!mb-4">
                         <Title level={2} className="!m-0">{t('projects.allProjects')}</Title>
-                        {canCreate && (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                                {t('projects.create')}
-                            </Button>
-                        )}
+                        <Space>
+                            {hasSelected && user.role === 'admin' && (
+                                <Popconfirm
+                                    title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete projects?' })}
+                                    description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete selected projects?' })}
+                                    onConfirm={handleBulkDelete}
+                                    okText={t('common.yes', { defaultValue: 'Yes' })}
+                                    cancelText={t('common.no', { defaultValue: 'No' })}
+                                >
+                                    <Button type="primary" danger icon={<DeleteOutlined />}>
+                                        {t('Delete Selected')} ({selectedRowKeys.length})
+                                    </Button>
+                                </Popconfirm>
+                            )}
+                            {canCreate && (
+                                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                                    {t('projects.create')}
+                                </Button>
+                            )}
+                        </Space>
                     </Flex>
 
                     <Flex wrap="wrap" gap="small" className="!mb-4" align="center">
@@ -238,63 +366,86 @@ export default function ProjectsListPage() {
                         <Button onClick={() => setFilters({ q: '', kunde: 'all', status: 'all', sortBy: 'name_asc', dateRange: null })}>
                             {t('projects.filters.reset')}
                         </Button>
+
+                        {/* Переключатель вида */}
+                        <div style={{ marginLeft: 'auto' }}>
+                            <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)} buttonStyle="solid">
+                                <Radio.Button value="list"><AppstoreOutlined /></Radio.Button>
+                                <Radio.Button value="table"><BarsOutlined /></Radio.Button>
+                            </Radio.Group>
+                        </div>
                     </Flex>
 
-                    <List
-                        loading={loading}
-                        itemLayout="vertical"
-                        dataSource={filtered}
-                        rowKey={(item) => item.id}
-                        renderItem={(item) => (
-                            <List.Item
-                                onClick={() => navigate(`/projects/${item.id}`)}
-                                style={{ cursor: 'pointer' }}
-                                actions={[
-                                    <Tag key="kunde">{item.kunde || '—'}</Tag>,
-                                    <Tag key="status" color={item.status === 'in_progress' ? 'geekblue' : 'gold'}>{t(`projects.status.${item.status}`, { defaultValue: item.status })}</Tag>,
-                                    item.planned_end_date && (
-                                        <Tag key="date" icon={<CalendarOutlined />} color="cyan">
-                                            {dayjs(item.planned_end_date).format('DD.MM.YYYY')}
-                                        </Tag>
-                                    ),
-                                    user.role === 'admin' && (
-                                        <Popconfirm
-                                            key="delete"
-                                            title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
-                                            description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
-                                            onConfirm={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(item.id);
-                                            }}
-                                            onCancel={(e) => e.stopPropagation()}
-                                            okText={t('common.yes', { defaultValue: 'Yes' })}
-                                            cancelText={t('common.no', { defaultValue: 'No' })}
-                                        >
-                                            <Button
-                                                danger
-                                                icon={<DeleteOutlined />}
-                                                size="small"
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        </Popconfirm>
-                                    )
-                                ]}
-                            >
-                                <List.Item.Meta
-                                    title={<Space>
-                                        {item.name}
-                                        {/* Можно добавить индикатор, если дата просрочена */}
-                                        {item.planned_end_date && dayjs(item.planned_end_date).isBefore(dayjs(), 'day') && item.status !== 'finished' && (
-                                            <Tag color="error">
-                                                {t('projects.overdue', { defaultValue: 'Overdue' })}
+                    {viewMode === 'list' ? (
+                        <List
+                            loading={loading}
+                            itemLayout="vertical"
+                            dataSource={filtered}
+                            rowKey={(item) => item.id}
+                            renderItem={(item) => (
+                                <List.Item
+                                    onClick={() => navigate(`/projects/${item.id}`)}
+                                    style={{ cursor: 'pointer' }}
+                                    actions={[
+                                        <Tag key="kunde">{item.kunde || '—'}</Tag>,
+                                        <Tag key="status" color={colors[item.status] || 'default'}>{t(`projects.status.${item.status}`, { defaultValue: item.status })}</Tag>,
+                                        item.planned_end_date && (
+                                            <Tag key="date" icon={<CalendarOutlined />} color="cyan">
+                                                {dayjs(item.planned_end_date).format('DD.MM.YYYY')}
                                             </Tag>
-                                        )}
-                                    </Space>}
-                                    description={`${t('projects.manager', { defaultValue: 'Manager' })}: ${item.manager || '—'}`}
-                                />
-                            </List.Item>
-                        )}
-                    />
+                                        ),
+                                        user.role === 'admin' && (
+                                            <Popconfirm
+                                                key="delete"
+                                                title={t('projects.deleteConfirmTitle', { defaultValue: 'Delete the project?' })}
+                                                description={t('projects.deleteConfirmDesc', { defaultValue: 'Are you sure you want to delete this project?' })}
+                                                onConfirm={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(item.id);
+                                                }}
+                                                onCancel={(e) => e.stopPropagation()}
+                                                okText={t('common.yes', { defaultValue: 'Yes' })}
+                                                cancelText={t('common.no', { defaultValue: 'No' })}
+                                            >
+                                                <Button
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    size="small"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </Popconfirm>
+                                        )
+                                    ]}
+                                >
+                                    <List.Item.Meta
+                                        title={<Space>
+                                            {item.name}
+                                            {/* Можно добавить индикатор, если дата просрочена */}
+                                            {item.planned_end_date && dayjs(item.planned_end_date).isBefore(dayjs(), 'day') && item.status !== 'finished' && (
+                                                <Tag color="error">
+                                                    {t('projects.overdue', { defaultValue: 'Overdue' })}
+                                                </Tag>
+                                            )}
+                                        </Space>}
+                                        description={`${t('projects.manager', { defaultValue: 'Manager' })}: ${item.manager || '—'}`}
+                                    />
+                                </List.Item>
+                            )}
+                        />
+                    ) : (
+                        <Table
+                            rowSelection={user.role === 'admin' ? rowSelection : null}
+                            columns={tableColumns}
+                            dataSource={filtered}
+                            rowKey="id"
+                            loading={loading}
+                            pagination={false}
+                            onRow={(record) => ({
+                                onClick: () => navigate(`/projects/${record.id}`),
+                                style: { cursor: 'pointer' }
+                            })}
+                        />
+                    )}
 
                     <Modal
                         title={t('projects.create')}

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Typography, Card, Col, Row, Statistic, List, Flex, Button, Tag, Modal, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { ExclamationCircleOutlined, FieldTimeOutlined, LogoutOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined, FieldTimeOutlined, LogoutOutlined, CheckCircleOutlined, CloseCircleOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import NavigationTab from '../components/NavigationTab';
 import LanguageSwitch from '../components/LanguageSwitch';
 import { useNavigate, Navigate } from 'react-router-dom';
@@ -18,7 +18,7 @@ export default function DashboardPage() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    const isAuthorized = user?.role === 'admin' || user?.role === 'auditor';
+    const isAuthorized = user?.role === 'admin' || user?.role === 'auditor' || user?.role === 'manager';
     if (!isAuthorized) {
         return <Navigate to="/projects" replace />;
     }
@@ -33,6 +33,11 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [isPendingModalVisible, setIsPendingModalVisible] = useState(false);
     const [isOverdueModalVisible, setIsOverdueModalVisible] = useState(false);
+    // --- НОВЫЕ STATE ДЛЯ МОДАЛОК ---
+    const [isOpenItemsModalVisible, setIsOpenItemsModalVisible] = useState(false);
+    const [isApprovedItemsModalVisible, setIsApprovedItemsModalVisible] = useState(false);
+    const [isRejectedItemsModalVisible, setIsRejectedItemsModalVisible] = useState(false);
+
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -59,7 +64,7 @@ export default function DashboardPage() {
     }, []);
 
 
-// Преобразуем объект status_counts в массив, понятный для диаграмм
+    // Преобразуем объект status_counts в массив, понятный для диаграмм
     const chartData = Object.entries(stats.status_counts || {})
         .map(([statusKey, rawValue]) => {
             const value = Number(rawValue) || 0;
@@ -72,7 +77,7 @@ export default function DashboardPage() {
         .filter((item) => item.value > 0);
 
     const totalTickets = chartData.reduce((acc, curr) => acc + (curr.value || 0), 0);
-// Конфигурация для круговой диаграммы
+    // Конфигурация для круговой диаграммы
     const pieConfig = {
         data: chartData,
         angleField: 'value',
@@ -80,7 +85,7 @@ export default function DashboardPage() {
         radius: 0.9,
         innerRadius: 0.5,      // обычный "пирог", не донат
         autoFit: true,
-        height: 260,         // явная высота, чтобы точно было место
+        height: 400,         // явная высота, чтобы точно было место
         label: {
             text: 'value', // В G2 v5 просто указываем имя поля
             style: {
@@ -126,19 +131,54 @@ export default function DashboardPage() {
                 </Sider>
 
                 <Content className="p-6 bg-gray-50">
-                    <Title level={2} className="!mb-6">{t('menu.dashboard', {defaultValue: 'Dashboard'})}</Title>
+                    <Title level={2} className="!mb-6">{t('menu.dashboard', { defaultValue: 'Dashboard' })}</Title>
                     <Row gutter={[16, 16]}>
-                        <Col xs={24} sm={12}>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card hoverable onClick={() => !loading && (stats.status_counts?.open || 0) > 0 && setIsOpenItemsModalVisible(true)}>
+                                <Statistic
+                                    title={t('itemStatus.open', { defaultValue: 'Open' })}
+                                    value={stats.status_counts?.open || 0}
+                                    prefix={<FolderOpenOutlined />}
+                                    loading={loading}
+                                    valueStyle={{ color: '#1890ff' }}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card hoverable onClick={() => !loading && (stats.status_counts?.approved || 0) > 0 && setIsApprovedItemsModalVisible(true)}>
+                                <Statistic
+                                    title={t('itemStatus.approved', { defaultValue: 'Accepted' })}
+                                    value={stats.status_counts?.approved || 0}
+                                    prefix={<CheckCircleOutlined />}
+                                    loading={loading}
+                                    valueStyle={{ color: '#52c41a' }}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card hoverable onClick={() => !loading && (stats.status_counts?.rejected || 0) > 0 && setIsRejectedItemsModalVisible(true)}>
+                                <Statistic
+                                    title={t('itemStatus.rejected', { defaultValue: 'Rejected' })}
+                                    value={stats.status_counts?.rejected || 0}
+                                    prefix={<CloseCircleOutlined />}
+                                    loading={loading}
+                                    valueStyle={{ color: '#ff4d4f' }}
+                                />
+                            </Card>
+                        </Col>
+                        {/* Pending & Overdue - existing logic but better placed in grid */}
+                        <Col xs={24} sm={12} md={6}>
                             <Card hoverable onClick={() => !loading && stats.pending_items_count > 0 && setIsPendingModalVisible(true)}>
                                 <Statistic
                                     title={t('itemStatus.pending')}
                                     value={stats.pending_items_count}
                                     prefix={<FieldTimeOutlined />}
                                     loading={loading}
+                                    valueStyle={{ color: '#faad14' }}
                                 />
                             </Card>
                         </Col>
-                        <Col xs={24} sm={12}>
+                        <Col xs={24} sm={12} md={6}>
                             <Card hoverable onClick={() => !loading && stats.overdue_items_count > 0 && setIsOverdueModalVisible(true)}>
                                 <Statistic
                                     title={t('itemStatus.overdue')}
@@ -151,12 +191,12 @@ export default function DashboardPage() {
                         </Col>
                     </Row>
 
-                    <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                        <Col xs={24} lg={12}>
-                            <Card title={t('dashboard.charts.pieTitle', {defaultValue: 'Ticket Status Overview'})} loading={loading}>
+                    <Row gutter={[16, 16]} style={{ marginTop: 24 }} justify="center">
+                        <Col xs={24} lg={16}>
+                            <Card title={t('dashboard.charts.pieTitle', { defaultValue: 'Ticket Status Overview' })} loading={loading}>
                                 {/* --- ИЗМЕНЕНИЕ ЗДЕСЬ --- */}
                                 {chartData.length > 0 ? (
-                                    <div style={{ width: '100%', height: 260 }}>
+                                    <div style={{ width: '100%', height: 400 }}>
                                         <Pie {...pieConfig} />
                                     </div>
                                 ) : (
@@ -207,10 +247,10 @@ export default function DashboardPage() {
                     dataSource={stats.overdue_items}
                     renderItem={item => (
                         <List.Item
-                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('Go to project')}</Button>]}
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('goToProject')}</Button>]}
                         >
                             <List.Item.Meta
-                                title={<span style={{color: '#cf1322'}}>{item.item}</span>}
+                                title={<span style={{ color: '#cf1322' }}>{item.item}</span>}
                                 description={
                                     <>
                                         <Tag>{item.project.name}</Tag>
@@ -222,6 +262,72 @@ export default function DashboardPage() {
                     )}
                 />
             </Modal>
+
+            {/* --- НОВЫЕ МОДАЛКИ --- */}
+            <Modal
+                title={t('itemStatus.open', { defaultValue: 'Open Items' })}
+                open={isOpenItemsModalVisible}
+                onCancel={() => setIsOpenItemsModalVisible(false)}
+                footer={null}
+            >
+                <List
+                    dataSource={stats.open_items || []}
+                    renderItem={item => (
+                        <List.Item
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('goToProject')}</Button>]}
+                        >
+                            <List.Item.Meta
+                                title={item.item}
+                                description={<Tag>{item.project.name}</Tag>}
+                            />
+                        </List.Item>
+                    )}
+                />
+            </Modal>
+
+            <Modal
+                title={t('itemStatus.approved', { defaultValue: 'Accepted Items' })}
+                open={isApprovedItemsModalVisible}
+                onCancel={() => setIsApprovedItemsModalVisible(false)}
+                footer={null}
+            >
+                <List
+                    dataSource={stats.approved_items || []}
+                    renderItem={item => (
+                        <List.Item
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('goToProject')}</Button>]}
+                        >
+                            <List.Item.Meta
+                                title={item.item}
+                                description={<Tag color="success">{item.project.name}</Tag>}
+                            />
+                        </List.Item>
+                    )}
+                />
+            </Modal>
+
+            <Modal
+                title={t('itemStatus.rejected', { defaultValue: 'Rejected Items' })}
+                open={isRejectedItemsModalVisible}
+                onCancel={() => setIsRejectedItemsModalVisible(false)}
+                footer={null}
+            >
+                <List
+                    dataSource={stats.rejected_items || []}
+                    renderItem={item => (
+                        <List.Item
+                            actions={[<Button onClick={() => navigate(`/projects/${item.project.id}`)}>{t('goToProject')}</Button>]}
+                        >
+                            <List.Item.Meta
+                                title={<span style={{ color: '#ff4d4f' }}>{item.item}</span>}
+                                description={<Tag color="error">{item.project.name}</Tag>}
+                            />
+                        </List.Item>
+                    )}
+                />
+            </Modal>
+
+
         </Layout>
     );
 }

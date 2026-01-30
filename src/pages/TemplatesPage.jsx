@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message, AutoComplete } from 'antd';
+import { Layout, Typography, Divider, Button, Flex, Modal, Form, Input, Transfer, List, Popconfirm, message, AutoComplete, Card, Tag, Table, Space } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitch from '../components/LanguageSwitch';
 import NavigationTab from '../components/NavigationTab';
@@ -54,10 +54,12 @@ export default function TemplatesPage() {
         try {
             const kbResponse = await apiClient.get('/knowledge-base/');
             const formattedItems = kbResponse.data.map(item => ({
-                key: item.item,
+                key: item.id, // Используем ID как ключ
+                id: item.id,  // Сохраняем ID для действий
                 title: item.item,
                 category: item.category,
             }));
+            console.log("Fetched KB Items:", formattedItems);
             setKnowledgeBaseItems(formattedItems);
         } catch (error) {
             console.error("Failed to fetch knowledge base", error);
@@ -93,9 +95,16 @@ export default function TemplatesPage() {
     };
 
     const handleTemplateSave = async (values) => {
+        // --- FIX: The backend expects a list of STRINGS (item texts), but targetKeys are now IDs.
+        // We must map the IDs back to the item strings.
+        const selectedItemTexts = targetKeys.map(key => {
+            const kbItem = knowledgeBaseItems.find(i => i.key === key);
+            return kbItem ? kbItem.title : null;
+        }).filter(item => item !== null);
+
         const payload = {
             name: values.name,
-            items: targetKeys,
+            items: selectedItemTexts,
         };
 
         try {
@@ -113,6 +122,7 @@ export default function TemplatesPage() {
             message.error(error.response?.data?.detail || 'Failed to save template.');
         }
     };
+
 
     const handleTemplateDelete = async (template) => {
         try {
@@ -157,52 +167,146 @@ export default function TemplatesPage() {
     }, [knowledgeBaseItems]);
 
 
-    const renderTemplateManager = () => (
-        <>
-            <Flex justify="space-between" align="center">
-                <Title level={3}>{t('settingsPage.templates.title')}</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTemplateModal}>
-                    {t('settingsPage.templates.create')}
-                </Button>
-            </Flex>
-            <Paragraph>{t('settingsPage.templates.description')}</Paragraph>
-            <List
-                bordered
-                loading={loadingTemplates}
-                dataSource={templates}
-                renderItem={item => (
-                    <List.Item
-                        actions={[
-                            <Button icon={<EditOutlined />} onClick={() => openEditTemplateModal(item)} />,
-                            <Popconfirm
-                                title={t('settingsPage.templates.deleteConfirm')}
-                                onConfirm={() => handleTemplateDelete(item)}
-                            >
-                                <Button danger icon={<DeleteOutlined />} />
-                            </Popconfirm>
-                        ]}
-                    >
-                        <List.Item.Meta
-                            title={item.name}
-                            description={`${item.items.length} items`}
-                        />
-                    </List.Item>
-                )}
-            />
-        </>
+    // --- Новая логика отрисовки --
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredTemplates = templates.filter(t =>
+        t.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // --- ФУНКЦИЯ ВОССТАНОВЛЕНА ---
-    const renderKnowledgeBaseManager = () => (
-        <>
-            <Flex justify="space-between" align="center">
-                <Title level={3}>{t('settingsPage.kb.title')}</Title>
-                <Button icon={<PlusOutlined />} onClick={openKbModal}>
-                    {t('settingsPage.kb.addItem')}
-                </Button>
+    // --- Логика для управления элементами КБ (Manage Items) ---
+    // Используем уже существующие state isKbModalVisible, но теперь модалка будет другой
+    const [kbSearchTerm, setKbSearchTerm] = useState('');
+    const [editingKbItem, setEditingKbItem] = useState(null);
+
+    const openManageItemsModal = () => {
+        setIsKbModalVisible(true);
+        fetchKnowledgeBase();
+    };
+
+    const handleKbDelete = async (id) => {
+        try {
+            await apiClient.delete(`/knowledge-base/${id}`);
+            message.success(t('settingsPage.kb.itemDeleted'));
+            fetchKnowledgeBase();
+        } catch (error) {
+            console.error("Failed to delete KB item", error);
+            message.error(error.response?.data?.detail || t('settingsPage.kb.failedToDelete'));
+        }
+    };
+
+    const handleKbEdit = (item) => {
+        setEditingKbItem(item);
+        kbForm.setFieldsValue({
+            category: item.category,
+            item: item.item
+        });
+        // Для редактирования можно использовать отдельную маленькую модалку или переключать режим в текущей
+        // Для простоты сделаем режим редактирования прямо в форме добавления в этой же модалке?
+        // Или лучше отдельная модалка "Add/Edit Item". 
+        // Давайте сделаем отдельное состояние layout внутри модалки, или простую форму сверху списка.
+    };
+
+    // Состояние для ВНУТРЕННЕЙ модалки добавления/редактирования элемента
+    const [isItemFormVisible, setIsItemFormVisible] = useState(false);
+
+    const openItemForm = (item = null) => {
+        setEditingKbItem(item);
+        if (item) {
+            kbForm.setFieldsValue({ category: item.category, item: item.item });
+        } else {
+            kbForm.resetFields();
+        }
+        setIsItemFormVisible(true);
+    }
+
+    const handleItemFormSave = async (values) => {
+        console.log("Saving Item:", values, "Editing ID:", editingKbItem?.id);
+        try {
+            if (editingKbItem) {
+                await apiClient.put(`/knowledge-base/item/${editingKbItem.id}`, values);
+                message.success(t('settingsPage.kb.itemUpdated'));
+            } else {
+                await apiClient.post('/knowledge-base/', values);
+                message.success(t('settingsPage.kb.itemCreated'));
+            }
+            setIsItemFormVisible(false);
+            setEditingKbItem(null);
+            fetchKnowledgeBase();
+        } catch (error) {
+            console.error("Failed to save item", error);
+            message.error(error.response?.data?.detail || t('settingsPage.kb.failedToSave'));
+        }
+    }
+
+
+    const renderWorkPanel = () => (
+        <Card className="mb-6 shadow-sm border-gray-200" style={{ marginBottom: '24px' }}>
+            <Flex justify="space-between" align="center" wrap="wrap" gap="small">
+                <div>
+                    <Title level={4} style={{ margin: 0 }}>{t('settingsPage.templates.title')}</Title>
+                    <Text type="secondary">{t('settingsPage.templates.description')}</Text>
+                </div>
+                <Flex gap="small">
+                    <Button onClick={openManageItemsModal}>
+                        {t('settingsPage.kb.manageItems')}
+                    </Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTemplateModal}>
+                        {t('settingsPage.templates.create')}
+                    </Button>
+                </Flex>
             </Flex>
-            <Paragraph>{t('settingsPage.kb.description')}</Paragraph>
-        </>
+            <Divider style={{ margin: '16px 0' }} />
+            <Input.Search
+                placeholder={t('settingsPage.projects.filters.search', { defaultValue: 'Search templates...' })}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ maxWidth: 400 }}
+                allowClear
+            />
+        </Card>
+    );
+
+    const columns = [
+        {
+            title: t('settingsPage.templates.name'),
+            dataIndex: 'name',
+            key: 'name',
+            sorter: (a, b) => a.name.localeCompare(b.name),
+        },
+        {
+            title: t('settingsPage.templates.items'),
+            key: 'items',
+            render: (_, record) => (
+                <Text>{record.items.length} {t('settingsPage.templates.items', { defaultValue: 'items' })}</Text>
+            ),
+        },
+        {
+            title: t('usersPage.table.action'),
+            key: 'action',
+            width: 150,
+            render: (_, record) => (
+                <Space>
+                    <Button type="link" icon={<EditOutlined />} onClick={() => openEditTemplateModal(record)} />
+                    <Popconfirm
+                        title={t('settingsPage.templates.deleteConfirm')}
+                        onConfirm={() => handleTemplateDelete(record)}
+                    >
+                        <Button type="text" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
+
+    const renderTemplatesGrid = () => (
+        <Table
+            dataSource={filteredTemplates}
+            columns={columns}
+            rowKey="id"
+            loading={loadingTemplates}
+            pagination={{ pageSize: 12 }}
+            className="shadow-sm bg-white rounded-md"
+        />
     );
 
     // --- ЭТИ ФУНКЦИИ УДАЛЕНЫ ---
@@ -234,9 +338,8 @@ export default function TemplatesPage() {
 
                     {(user.role === 'admin' || user.role === 'auditor') && (
                         <>
-                            {renderTemplateManager()}
-                            <Divider /> {/* <-- ВОССТАНОВЛЕНО */}
-                            {renderKnowledgeBaseManager()} {/* <-- ВОССТАНОВЛЕНО */}
+                            {renderWorkPanel()}
+                            {renderTemplatesGrid()}
                         </>
                     )}
 
@@ -260,7 +363,7 @@ export default function TemplatesPage() {
                             label={t('settingsPage.templates.name')}
                             rules={[{ required: true }]}
                         >
-                            <Input disabled={!!editingTemplate}/>
+                            <Input disabled={!!editingTemplate} />
                         </Form.Item>
                         <Form.Item label={t('settingsPage.templates.items')}>
                             <Transfer
@@ -278,38 +381,85 @@ export default function TemplatesPage() {
                 </div>
             </Modal>
 
-            {/* --- МОДАЛЬНОЕ ОКНО КБ ВОССТАНОВЛЕНО --- */}
+            {/* --- МОДАЛКА УПРАВЛЕНИЯ КБ --- */}
             <Modal
-                title={t('settingsPage.kb.modalTitle')}
+                title={t('settingsPage.kb.manageItems')}
                 open={isKbModalVisible}
-                onCancel={handleKbCancel}
-                onOk={() => kbForm.submit()}
-                okText={t('settingsPage.kb.addItem')}
+                onCancel={() => setIsKbModalVisible(false)}
+                footer={null}
+                width={1000}
                 destroyOnClose
             >
-                <Form form={kbForm} layout="vertical" onFinish={handleKbSave}>
-                    <Form.Item
-                        name="category"
-                        label={t('settingsPage.kb.categoryLabel')}
-                        rules={[{ required: true, message: t('settingsPage.kb.categoryMsg') }]}
-                    >
-                        <AutoComplete
-                            options={existingCategoryOptions}
-                            style={{ width: '100%' }}
-                            placeholder={t('settingsPage.kb.categoryPlaceholder')}
-                            filterOption={(inputValue, option) =>
-                                option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
-                            }
-                        />
-                    </Form.Item>
-                    <Form.Item
-                        name="item"
-                        label={t('settingsPage.kb.itemLabel')}
-                        rules={[{ required: true, message: t('settingsPage.kb.itemMsg')}]}
-                    >
-                        <Input.TextArea rows={4} />
-                    </Form.Item>
-                </Form>
+                <Flex justify="space-between" className="mb-4">
+                    <Input.Search
+                        placeholder="Search items..."
+                        style={{ maxWidth: 300 }}
+                        onChange={e => setKbSearchTerm(e.target.value)}
+                    />
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => openItemForm(null)}>
+                        {t('settingsPage.kb.addNewItem')}
+                    </Button>
+                </Flex>
+
+                <List
+                    itemLayout="horizontal"
+                    dataSource={knowledgeBaseItems.filter(item =>
+                        item.title.toLowerCase().includes(kbSearchTerm.toLowerCase()) ||
+                        item.category.toLowerCase().includes(kbSearchTerm.toLowerCase())
+                    )}
+                    pagination={{ pageSize: 10 }}
+                    loading={loadingKB}
+                    renderItem={item => (
+                        <List.Item
+                            actions={[
+                                <Button type="link" icon={<EditOutlined />} onClick={() => {
+                                    console.log("Opening edit for:", item);
+                                    openItemForm({ id: item.id, category: item.category, item: item.title });
+                                }} />,
+                                <Popconfirm title={t('settingsPage.kb.deleteItemConfirm')} onConfirm={() => handleKbDelete(item.id)}>
+                                    <Button type="text" danger icon={<DeleteOutlined />} />
+                                </Popconfirm>
+                            ]}
+                        >
+                            <List.Item.Meta
+                                title={item.title}
+                                description={<Tag>{item.category}</Tag>}
+                            />
+                        </List.Item>
+                    )}
+                />
+
+                {/* Вложенная модалка для создания/редактирования */}
+                <Modal
+                    title={editingKbItem ? t('settingsPage.kb.editItem') : t('settingsPage.kb.addNewItem')}
+                    open={isItemFormVisible}
+                    onCancel={() => setIsItemFormVisible(false)}
+                    onOk={() => kbForm.submit()}
+                    destroyOnClose
+                >
+                    <Form form={kbForm} layout="vertical" onFinish={handleItemFormSave}>
+                        <Form.Item
+                            name="category"
+                            label={t('settingsPage.kb.categoryLabel')}
+                            rules={[{ required: true, message: t('settingsPage.kb.categoryMsg') }]}
+                        >
+                            <AutoComplete
+                                options={existingCategoryOptions}
+                                placeholder={t('settingsPage.kb.categoryPlaceholder')}
+                                filterOption={(inputValue, option) =>
+                                    option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                                }
+                            />
+                        </Form.Item>
+                        <Form.Item
+                            name="item"
+                            label={t('settingsPage.kb.itemLabel')}
+                            rules={[{ required: true, message: t('settingsPage.kb.itemMsg') }]}
+                        >
+                            <Input.TextArea rows={4} />
+                        </Form.Item>
+                    </Form>
+                </Modal>
             </Modal>
         </Layout>
     );

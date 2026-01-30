@@ -18,15 +18,16 @@ export default function NavigationTab({ activeKey }) {
     const { t } = useTranslation();
     // Получаем пользователя и НОВЫЙ СЧЕТЧИК из контекста
     const { user, notificationCount } = useAuth();
+    const isAuditorOrAdminOrManager = user?.role === 'admin' || user?.role === 'auditor' || user?.role === 'manager';
     const isAuditorOrAdmin = user?.role === 'admin' || user?.role === 'auditor';
 
     const items = [];
 
-    if (isAuditorOrAdmin) {
+    if (isAuditorOrAdminOrManager) {
         items.push({
             key: '/dashboard',
             icon: <DashboardOutlined />,
-            label: t('menu.dashboard', {defaultValue: 'Dashboard'})
+            label: t('menu.dashboard', { defaultValue: 'Dashboard' })
         });
     }
 
@@ -39,7 +40,7 @@ export default function NavigationTab({ activeKey }) {
         {
             key: '/projects/archive',
             icon: <InboxOutlined />,
-            label: t('menu.archive', {defaultValue: 'Archive'})
+            label: t('menu.archive', { defaultValue: 'Archive' })
         }
     );
 
@@ -69,7 +70,7 @@ export default function NavigationTab({ activeKey }) {
     items.push({
         key: '/profile',
         icon: <IdcardOutlined />,
-        label: t('menu.profile', {defaultValue: 'Profile'})
+        label: t('menu.profile', { defaultValue: 'Profile' })
     });
 
     const handleClick = ({ key }) => navigate(key);
